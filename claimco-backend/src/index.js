@@ -12,6 +12,7 @@ const userRoutes = require("./routes/users");
 const notificationRoutes = require("./routes/notifications");
 const reviewRoutes = require("./routes/reviews");
 const conversationRoutes = require("./routes/conversations");
+const supportRoutes = require("./routes/support");
 const http = require("http");
 const { Server } = require("socket.io");
 const registerChatSocket = require("./sockets/chat");
@@ -36,6 +37,7 @@ app.use("/users", userRoutes);
 app.use("/notifications", notificationRoutes);
 app.use("/reviews", reviewRoutes);
 app.use("/conversations", conversationRoutes);
+app.use("/api/support", supportRoutes);
 
 app.use((req, res) => res.status(404).json({ error: "Not found" }));
 

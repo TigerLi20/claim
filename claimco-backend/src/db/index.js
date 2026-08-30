@@ -49,6 +49,18 @@ if (!taskApplicationColumns.includes("request_note")) {
     db.exec("ALTER TABLE task_applications ADD COLUMN request_note TEXT NOT NULL DEFAULT ''");
 }
 
+// Support messages table (dev tools)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS support_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
+    email TEXT,
+    message TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    resolved INTEGER DEFAULT 0
+  )
+`);
+
 const serviceTableSql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'services'").get()?.sql || "";
 if (!serviceTableSql.includes("'academic'")) {
     db.pragma("foreign_keys = OFF");
