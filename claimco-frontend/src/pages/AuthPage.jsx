@@ -382,16 +382,16 @@ export default function AuthPage() {
         <footer className="auth-footer">
           <div className="auth-trust-strip">
             <div className="auth-trust-item">
-              <strong>1,400+</strong>
-              <span>campus users</span>
+              <strong>$0</strong>
+              <span>platform fees</span>
             </div>
             <div className="auth-trust-item">
-              <strong>3,900+</strong>
-              <span>tasks and sessions</span>
-            </div>
-            <div className="auth-trust-item">
-              <strong>4.9 / 5</strong>
+              <strong>4.8 / 5</strong>
               <span>avg. rating</span>
+            </div>
+            <div className="auth-trust-item">
+              <strong>Verified</strong>
+              <span>fellow classmates</span>
             </div>
           </div>
         </footer>
@@ -593,16 +593,16 @@ export default function AuthPage() {
       <footer className="auth-footer">
         <div className="auth-trust-strip">
           <div className="auth-trust-item">
-            <strong>1,400+</strong>
-            <span>campus users</span>
+            <strong>$0</strong>
+            <span>platform fees</span>
           </div>
           <div className="auth-trust-item">
-            <strong>3,900+</strong>
-            <span>tasks and sessions</span>
-          </div>
-          <div className="auth-trust-item">
-            <strong>4.9 / 5</strong>
+            <strong>4.8 / 5</strong>
             <span>avg. rating</span>
+          </div>
+          <div className="auth-trust-item">
+            <strong>Verified</strong>
+            <span>fellow classmates</span>
           </div>
         </div>
       </footer>

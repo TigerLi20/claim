@@ -44,7 +44,7 @@ export const TUTORING_CATEGORIES = [
     id: "creative",
     label: "Creative",
     icon: Palette,
-    blurb: "Graphic design, photography, video editing, web projects, music lessons",
+    blurb: "Graphic design, beauty (nails, hair), video editing, web projects, music lessons",
   },
   {
     id: "other",

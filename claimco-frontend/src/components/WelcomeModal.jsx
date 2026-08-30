@@ -19,6 +19,11 @@ export const welcomeRules = [
     description:
       "Once the agreed work is done and both sides are satisfied, mark it fulfilled to close the task and start the review flow.",
   },
+  {
+    title: "Questions or issues?",
+    description:
+      "Go to settings -> Help -> scroll to the bottom of the page to fill out the support form with any questions or issues.",
+  },
 ];
 
 export default function WelcomeModal({ open, onClose }) {

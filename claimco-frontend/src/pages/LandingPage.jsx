@@ -93,20 +93,20 @@ export default function LandingPage() {
                 <div className="landing-strip">
                     <div className="landing-wrap landing-strip-inner">
                         <div className="landing-strip-item">
-                            <strong>1,400+</strong>
-                            campus users on Claim
+                            <strong>Every</strong>
+                            listing comes from a real classmate
                         </div>
                         <div className="landing-strip-item">
-                            <strong>3,900+</strong>
-                            tasks and sessions completed
+                            <strong>$0</strong>
+                            platform fees
                         </div>
                         <div className="landing-strip-item">
-                            <strong>4.9 / 5</strong>
+                            <strong>4.8 / 5</strong>
                             average helper rating
                         </div>
                         <div className="landing-strip-item">
-                            <strong>&lt; 1 hr</strong>
-                            average time to match
+                            <strong>Verified</strong>
+                            with your @campus.edu email
                         </div>
                     </div>
                 </div>
@@ -124,7 +124,7 @@ export default function LandingPage() {
                                 <div className="landing-code">01</div>
                                 <div>
                                     <h3>Post what you need — or list what you offer</h3>
-                                    <p>Set a tutoring session, a quick task, or a skill you can help with in under a minute.</p>
+                                    <p>Set a tutoring session, a beauty service (nails, hair), or quick task you can help with in under a minute.</p>
                                 </div>
                                 <div className="landing-ledger-tag">For both sides</div>
                             </div>
@@ -141,10 +141,10 @@ export default function LandingPage() {
                             <div className="landing-ledger-row">
                                 <div className="landing-code">03</div>
                                 <div>
-                                    <h3>Get it done, pay securely, leave a review</h3>
-                                    <p>Payments are held until the session or task is complete, so everyone has a clear path forward.</p>
+                                    <h3>Get it done, leave a review</h3>
+                                    <p>Once the session or task is complete, both parties may leave a review for each other and the community.</p>
                                 </div>
-                                <div className="landing-ledger-tag">Payments</div>
+                                <div className="landing-ledger-tag">Reviews</div>
                             </div>
                         </div>
                     </div>
@@ -178,8 +178,8 @@ export default function LandingPage() {
 
                             <div className="landing-feature">
                                 <div className="landing-feature-num">04</div>
-                                <h3>Secure payments</h3>
-                                <p>Built-in payment flow and payout support make it easier to pay and get paid without awkward back-and-forth.</p>
+                                <h3>Beauty services</h3>
+                                <p>Hair, nails, and other beauty services offered by skilled peers right on campus — book and pay in one place.</p>
                             </div>
 
                             <div className="landing-feature">
@@ -211,7 +211,7 @@ export default function LandingPage() {
                                 <div className="landing-persona">
                                     <div className="landing-avatar">MT</div>
                                     <div>
-                                        <div className="landing-name">Maya T.</div>
+                                        <div className="landing-name">Tiger L.</div>
                                         <div className="landing-meta">Computer Science</div>
                                     </div>
                                 </div>
@@ -222,7 +222,7 @@ export default function LandingPage() {
                                 <div className="landing-persona">
                                     <div className="landing-avatar">DR</div>
                                     <div>
-                                        <div className="landing-name">Devon R.</div>
+                                        <div className="landing-name">Maya T.</div>
                                         <div className="landing-meta">Applied Math</div>
                                     </div>
                                 </div>
@@ -233,7 +233,7 @@ export default function LandingPage() {
                                 <div className="landing-persona">
                                     <div className="landing-avatar">PS</div>
                                     <div>
-                                        <div className="landing-name">Priya S.</div>
+                                        <div className="landing-name">Sophia S.</div>
                                         <div className="landing-meta">Undeclared</div>
                                     </div>
                                 </div>

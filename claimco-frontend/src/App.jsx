@@ -21,6 +21,7 @@ import Chat from "./pages/Chat";
 import ServiceInstanceDetail from "./pages/ServiceInstanceDetail";
 import Help from "./pages/Help";
 import LandingPage from "./pages/LandingPage";
+import AdminInbox from "./pages/AdminInbox";
 import { useAuth } from "./context/AuthContext";
 
 const tabTitles = {
@@ -167,6 +168,7 @@ export default function App() {
         <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
         <Route path="/chat/:conversationId" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
         <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
+        <Route path="/admin" element={<AdminInbox />} />
         <Route path="*" element={<Navigate to={user ? "/board" : "/"} replace />} />
       </Routes>
     </div>

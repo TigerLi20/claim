@@ -51,12 +51,14 @@ const faqItems = [
   },
 ];
 
+import ContactDevsForm from "../components/ContactDevsForm";
+
 export default function Help() {
   return (
     <div className="content faq-page">
       <div className="page-heading">
         <div>
-          <div className="section-label">HELP & FAQs</div>
+          <div className="section-label">HELP & FAQs (contact dev team at bottom)</div>
           <h1 className="page-title">Frequently asked questions</h1>
         </div>
         <button type="button" className="btn btn-secondary" onClick={() => {
@@ -73,6 +75,10 @@ export default function Help() {
             <p className="faq-answer">{item.answer}</p>
           </article>
         ))}
+      </div>
+
+      <div style={{ marginTop: 60, display: 'flex', justifyContent: 'center' }}>
+        <ContactDevsForm />
       </div>
     </div>
   );

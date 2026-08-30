@@ -112,6 +112,7 @@ export function AuthProvider({ children }) {
     sessionStorage.removeItem("claimco_show_welcome");
     sessionStorage.removeItem("claimco_pending_user_id");
     sessionStorage.removeItem("claimco_pending_email");
+    sessionStorage.removeItem("claim_admin_key");
     setPendingUserId(null);
     setPendingEmail(null);
     setUser(null);

@@ -103,7 +103,7 @@ export default function NavBar() {
               <span className="settings-help-row">
                 <span>
                   <span className="settings-help-label">Help</span>
-                  <span className="settings-option-description">Read our FAQ and get quick answers</span>
+                  <span className="settings-option-description">Read our FAQs and contact the dev team</span>
                 </span>
               </span>
             </button>
