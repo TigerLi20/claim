@@ -4,6 +4,7 @@ const db = require("../db");
 const { requireAuth } = require("../middleware/auth");
 const { splitPayment } = require("../lib/money");
 const stripeLib = require("../lib/stripe");
+const { sendMaybe } = require("../lib/notificationEmail");
 
 const router = express.Router();
 const VALID_CATEGORIES = new Set(["moveout", "errand", "event"]);
@@ -414,8 +415,20 @@ router.post("/:id/applications/:applicationId/confirm", requireAuth, async (req,
         await addDeclineNotification.run(crypto.randomUUID(), applicant.worker_id, task.id, req.userId, "Another applicant was selected for this ticket.");
       }
       await transactionDb.prepare("UPDATE notifications SET read_at = datetime('now') WHERE task_id = ? AND type = 'task_application'").run(task.id);
-      await transactionDb.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'task_confirmed', ?, ?, ?)").run(crypto.randomUUID(), latestApplication.worker_id, task.id, req.userId, "Your request to claim a ticket was accepted.");
-      await transactionDb.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'task_confirmation_sent', ?, ?, ?)").run(crypto.randomUUID(), req.userId, task.id, latestApplication.worker_id, "You accepted a request to claim this ticket.");
+      const workerConfirmedMessage = "Your request to claim a ticket was accepted.";
+      const requesterConfirmationMessage = "You accepted a request to claim this ticket.";
+      await transactionDb.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'task_confirmed', ?, ?, ?)").run(crypto.randomUUID(), latestApplication.worker_id, task.id, req.userId, workerConfirmedMessage);
+      await transactionDb.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'task_confirmation_sent', ?, ?, ?)").run(crypto.randomUUID(), req.userId, task.id, latestApplication.worker_id, requesterConfirmationMessage);
+      await sendMaybe(latestApplication.worker_id, {
+        type: "task_confirmed",
+        subject: "Your ticket claim was accepted",
+        text: `${workerConfirmedMessage}\n\nOpen Claim to view the ticket details.`,
+      });
+      await sendMaybe(req.userId, {
+        type: "task_confirmation_sent",
+        subject: "You accepted a ticket claim",
+        text: `${requesterConfirmationMessage}\n\nOpen Claim to continue the conversation.`,
+      });
       const conversationId = await require("../lib/conversations").getConversationId(latestApplication.worker_id, latestTask.requester_id, transactionDb);
       return conversationId;
     });
@@ -436,8 +449,14 @@ router.post("/:id/applications/:applicationId/decline", requireAuth, async (req,
   const result = await db.prepare("UPDATE task_applications SET status = 'declined' WHERE id = ? AND task_id = ? AND status = 'pending'").run(req.params.applicationId, task.id);
   if (!result.changes) return res.status(409).json({ error: "Application is no longer pending" });
   const application = await db.prepare("SELECT worker_id FROM task_applications WHERE id = ?").get(req.params.applicationId);
+  const declineMessage = "Your request was not selected for this ticket.";
   await db.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'task_declined', ?, ?, ?)")
-    .run(crypto.randomUUID(), application.worker_id, task.id, req.userId, "Your request was not selected for this ticket.");
+    .run(crypto.randomUUID(), application.worker_id, task.id, req.userId, declineMessage);
+  await sendMaybe(application.worker_id, {
+    type: "task_declined",
+    subject: "Your ticket claim was not selected",
+    text: `${declineMessage}\n\nOpen Claim to keep exploring other opportunities.`,
+  });
   res.json({ ok: true });
 });
 
@@ -473,10 +492,21 @@ router.post("/:id/complete", requireAuth, async (req, res) => {
           completed_at = datetime('now'), platform_cut_cents = ?, worker_payout_cents = ?
        WHERE id = ?`
     ).run(platformCutCents, workerPayoutCents, task.id);
+    const reviewRequestMessage = "Your ticket was fully fulfilled. Leave a review.";
     await db.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'review_request', ?, ?, ?)")
-      .run(crypto.randomUUID(), task.requester_id, task.id, task.worker_id, "Your ticket was fully fulfilled. Leave a review.");
+      .run(crypto.randomUUID(), task.requester_id, task.id, task.worker_id, reviewRequestMessage);
     await db.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'review_request', ?, ?, ?)")
-      .run(crypto.randomUUID(), task.worker_id, task.id, task.requester_id, "Your ticket was fully fulfilled. Leave a review.");
+      .run(crypto.randomUUID(), task.worker_id, task.id, task.requester_id, reviewRequestMessage);
+    await sendMaybe(task.requester_id, {
+      type: "review_request",
+      subject: "Leave a review for your completed ticket",
+      text: `${reviewRequestMessage}\n\nOpen Claim to leave feedback.`,
+    });
+    await sendMaybe(task.worker_id, {
+      type: "review_request",
+      subject: "Leave a review for your completed ticket",
+      text: `${reviewRequestMessage}\n\nOpen Claim to leave feedback.`,
+    });
   } else {
     await db.prepare(
       "UPDATE tasks SET requester_completed = ?, worker_completed = ? WHERE id = ?"

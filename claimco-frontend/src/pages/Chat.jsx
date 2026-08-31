@@ -39,11 +39,16 @@ export default function Chat() {
             if (String(message.conversationId) === String(conversationId)) setMessages((current) => [...current, message]);
         }
         socket.on("new_message", onMessage);
+        const heartbeat = setInterval(() => {
+            if (socket.connected) socket.emit("presence_heartbeat");
+        }, 30 * 1000);
         window.addEventListener("conversation-status-updated", refreshConversation);
         return () => {
             socket.off("new_message", onMessage);
             socket.off("connect", joinConversation);
             window.removeEventListener("conversation-status-updated", refreshConversation);
+            clearInterval(heartbeat);
+            socket.disconnect();
         };
     }, [conversationId, user?.id]);
 

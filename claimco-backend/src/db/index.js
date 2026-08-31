@@ -78,6 +78,11 @@ function createPostgresDb() {
         for (const statement of schemaStatements) {
             await pool.query(statement);
         }
+
+        await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS online_status TEXT NOT NULL DEFAULT 'offline'");
+        await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ");
+        await pool.query("UPDATE users SET online_status = 'offline' WHERE online_status IS NULL");
+
         await pool.query(
             "INSERT INTO approved_domains (domain, school_name) VALUES ('brown.edu', 'Brown University') ON CONFLICT (domain) DO NOTHING"
         );
@@ -272,6 +277,12 @@ function setupSqliteDb() {
     if (!userColumns.includes("status")) {
         db.exec("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'active'");
         db.exec("UPDATE users SET status = 'active' WHERE status IS NULL");
+    }
+    if (!userColumns.includes("online_status")) {
+        db.exec("ALTER TABLE users ADD COLUMN online_status TEXT NOT NULL DEFAULT 'offline'");
+    }
+    if (!userColumns.includes("last_seen_at")) {
+        db.exec("ALTER TABLE users ADD COLUMN last_seen_at TEXT");
     }
 
     const domainsCount = db.prepare("SELECT COUNT(*) as count FROM approved_domains").get().count;

@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS users (
   phone_number      TEXT UNIQUE,
   email_verified_at TEXT,
   status            TEXT DEFAULT 'active',
+  online_status     TEXT NOT NULL DEFAULT 'offline' CHECK (online_status IN ('online', 'offline')),
+  last_seen_at      TEXT,
   created_at        TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

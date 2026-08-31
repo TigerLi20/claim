@@ -22,8 +22,23 @@ if (!process.env.JWT_SECRET) {
   process.exit(1);
 }
 
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173,http://localhost:5174,http://localhost:3000").split(",").map((origin) => origin.trim()).filter(Boolean);
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    console.warn(`[CORS] Blocked origin: ${origin}`);
+    callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+};
+
 const app = express();
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json({ limit: "8mb" }));
 
 app.get("/health", (req, res) => res.json({ ok: true }));
@@ -52,7 +67,12 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 3001;
 const httpServer = http.createServer(app);
-const io = new Server(httpServer, { cors: { origin: true } });
+const io = new Server(httpServer, {
+  cors: {
+    origin: allowedOrigins,
+    credentials: true,
+  },
+});
 registerChatSocket(io);
 
 async function cleanupAbandonedPendingUsers() {

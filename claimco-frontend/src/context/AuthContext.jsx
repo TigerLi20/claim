@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { api } from "../api/client";
+import { socket } from "../chat/socket";
 
 const AuthContext = createContext(null);
 
@@ -106,6 +107,10 @@ export function AuthProvider({ children }) {
   }
 
   function logout() {
+    if (socket.connected) {
+      socket.disconnect();
+    }
+    socket.auth = { token: null };
     localStorage.removeItem("claimco_token");
     localStorage.removeItem("claimco_user");
     sessionStorage.removeItem("claimco_pending_onboarding");

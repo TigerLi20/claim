@@ -1,15 +1,17 @@
 /**
  * Abstract DeliveryProvider interface.
- * Implementations handle sending verification codes via email.
+ * Implementations handle sending verification codes and notifications via email.
  */
 class DeliveryProvider {
     /**
-     * Send a verification code via email.
+     * Send email content.
      * @param {string} to - Email address to send to
-     * @param {string} code - 6-digit verification code (plaintext, before hashing)
+     * @param {string} subjectOrCode - Either a verification code or an email subject
+     * @param {string} text - Plain-text body (optional)
+     * @param {string} html - HTML body (optional)
      * @returns {Promise<void>}
      */
-    async sendEmail(to, code) {
+    async sendEmail(to, subjectOrCode, text, html) {
         throw new Error("sendEmail() must be implemented by subclass");
     }
 }
