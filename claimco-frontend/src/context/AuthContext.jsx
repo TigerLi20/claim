@@ -46,9 +46,10 @@ export function AuthProvider({ children }) {
   async function clearPending() {
     const pendingId = sessionStorage.getItem("claimco_pending_user_id");
     if (pendingId) {
+      const baseUrl = api.API_BASE || "";
       try {
         // Delete the pending user from backend with keepalive so request completes even if page unloads
-        await fetch(`${api.API_BASE || 'http://localhost:3001'}/auth/cancel-registration`, {
+        await fetch(`${baseUrl}/auth/cancel-registration`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ pendingUserId: pendingId }),

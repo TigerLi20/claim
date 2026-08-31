@@ -318,7 +318,10 @@ function setupSqliteDb() {
     return db;
 }
 
-const db = process.env.DATABASE_URL ? createPostgresDb() : setupSqliteDb();
+const dbMode = process.env.DATABASE_URL ? "postgres" : "sqlite";
+console.log(`[db] Using database mode: ${dbMode}`);
+
+const db = dbMode === "postgres" ? createPostgresDb() : setupSqliteDb();
 
 module.exports = db;
 module.exports.translateSqliteToPostgres = translateSqliteToPostgres;
