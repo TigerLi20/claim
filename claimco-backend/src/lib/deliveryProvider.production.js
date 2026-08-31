@@ -21,6 +21,7 @@ class ProductionDeliveryProvider extends DeliveryProvider {
         const from = process.env.EMAIL_FROM || "onboarding@resend.dev";
 
         try {
+            console.log("Attempting to send email via Resend to:", to);
             const result = await this.resend.emails.send({
                 from,
                 to,
