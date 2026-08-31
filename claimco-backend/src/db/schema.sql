@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   concentration     TEXT,
   about_me          TEXT,
   profile_image     TEXT,
+  profile_image_public_id TEXT,
   stripe_account_id TEXT,
   stripe_onboarded  INTEGER NOT NULL DEFAULT 0,
   school_email      TEXT UNIQUE,
@@ -31,6 +32,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   location            TEXT,
   notes               TEXT NOT NULL DEFAULT '',
   images_json         TEXT NOT NULL DEFAULT '[]',
+  image_public_ids_json TEXT NOT NULL DEFAULT '[]',
   price_cents         INTEGER NOT NULL CHECK (price_cents > 0),
   status              TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','claimed','done','cancelled')),
 
@@ -64,6 +66,7 @@ CREATE TABLE IF NOT EXISTS services (
   title         TEXT NOT NULL,
   description   TEXT NOT NULL DEFAULT '',
   images_json   TEXT NOT NULL DEFAULT '[]',
+  image_public_ids_json TEXT NOT NULL DEFAULT '[]',
   price_cents   INTEGER NOT NULL CHECK (price_cents > 0),
   price_unit    TEXT NOT NULL DEFAULT 'per booking',
   provider_id   TEXT NOT NULL REFERENCES users(id),

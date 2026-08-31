@@ -81,6 +81,9 @@ function createPostgresDb() {
 
         await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS online_status TEXT NOT NULL DEFAULT 'offline'");
         await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ");
+        await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_public_id TEXT");
+        await pool.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS image_public_ids_json TEXT NOT NULL DEFAULT '[]'");
+        await pool.query("ALTER TABLE services ADD COLUMN IF NOT EXISTS image_public_ids_json TEXT NOT NULL DEFAULT '[]'");
         await pool.query("UPDATE users SET online_status = 'offline' WHERE online_status IS NULL");
 
         await pool.query(
@@ -265,6 +268,9 @@ function setupSqliteDb() {
     if (!userColumns.includes("profile_image")) {
         db.exec("ALTER TABLE users ADD COLUMN profile_image TEXT");
     }
+    if (!userColumns.includes("profile_image_public_id")) {
+        db.exec("ALTER TABLE users ADD COLUMN profile_image_public_id TEXT");
+    }
     if (!userColumns.includes("school_email")) {
         db.exec("ALTER TABLE users ADD COLUMN school_email TEXT UNIQUE");
     }
@@ -312,6 +318,15 @@ function setupSqliteDb() {
     }
     if (!purchaseColumns.includes("buyer_completed")) {
         db.exec("ALTER TABLE service_purchases ADD COLUMN buyer_completed INTEGER NOT NULL DEFAULT 0");
+    }
+
+    const taskImageColumns = db.prepare("PRAGMA table_info(tasks)").all().map((column) => column.name);
+    if (!taskImageColumns.includes("image_public_ids_json")) {
+        db.exec("ALTER TABLE tasks ADD COLUMN image_public_ids_json TEXT NOT NULL DEFAULT '[]'");
+    }
+    const serviceImageColumns = db.prepare("PRAGMA table_info(services)").all().map((column) => column.name);
+    if (!serviceImageColumns.includes("image_public_ids_json")) {
+        db.exec("ALTER TABLE services ADD COLUMN image_public_ids_json TEXT NOT NULL DEFAULT '[]'");
     }
 
     db.exec("UPDATE services SET price_unit = 'per booking' WHERE price_unit != 'per booking'");

@@ -60,7 +60,7 @@ app.use((req, res) => res.status(404).json({ error: "Not found" }));
 app.use((err, req, res, next) => {
   console.error(err);
   if (err.type === "entity.too.large") {
-    return res.status(413).json({ error: "File size is too large. The maximum profile picture size is 2 MB." });
+    return res.status(413).json({ error: "File size is too large. The maximum uploaded image size is 600 KB after compression." });
   }
   res.status(500).json({ error: "Internal server error" });
 });

@@ -3,7 +3,32 @@ import { Save, Upload } from "lucide-react";
 import ProfileAvatar from "../components/ProfileAvatar";
 import { useAuth } from "../context/AuthContext";
 
-const MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024;
+const MAX_PROFILE_IMAGE_BYTES = 600 * 1024;
+const MAX_DIMENSION = 1400;
+const JPEG_QUALITY = 0.7;
+
+function compressImage(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error("Could not read that image."));
+        reader.onload = () => {
+            const image = new Image();
+            image.onerror = () => reject(new Error("Could not process that image."));
+            image.onload = () => {
+                const scale = Math.min(1, MAX_DIMENSION / Math.max(image.width, image.height));
+                const canvas = document.createElement("canvas");
+                canvas.width = Math.round(image.width * scale);
+                canvas.height = Math.round(image.height * scale);
+                canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+                const result = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+                if (result.length > MAX_PROFILE_IMAGE_BYTES) reject(new Error("That profile picture is still too large after compression. Try a smaller image."));
+                else resolve(result);
+            };
+            image.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
 
 export default function Account() {
     const { user, updateProfile } = useAuth();
@@ -19,7 +44,7 @@ export default function Account() {
         setProfileImage(user.profileImage || null);
     }, [user]);
 
-    function handleImage(event) {
+    async function handleImage(event) {
         const file = event.target.files?.[0];
         if (!file) return;
         setSaved(false);
@@ -27,28 +52,28 @@ export default function Account() {
             setError("Please choose an image file.");
             return;
         }
-        if (file.size > MAX_PROFILE_IMAGE_BYTES) {
-            event.target.value = "";
-            setError("File size is too large. The maximum profile picture size is 2 MB.");
-            return;
+
+        const payload = new FormData();
+        payload.append("name", form.name || user?.name || "");
+        payload.append("year", form.year || user?.year || "");
+        payload.append("concentration", form.concentration || user?.concentration || "");
+        payload.append("aboutMe", form.aboutMe || user?.aboutMe || "");
+        payload.append("profileImage", file);
+
+        event.target.value = "";
+        setError("");
+        setSaved(false);
+        setBusy(true);
+
+        try {
+            const userData = await updateProfile(payload);
+            setProfileImage(userData.profileImage || null);
+            setSaved(true);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setBusy(false);
         }
-        const reader = new FileReader();
-        reader.onload = async () => {
-            const image = reader.result;
-            setError("");
-            setSaved(false);
-            setBusy(true);
-            try {
-                await updateProfile({ ...form, profileImage: image });
-                setProfileImage(image);
-                setSaved(true);
-            } catch (err) {
-                setError(err.message);
-            } finally {
-                setBusy(false);
-            }
-        };
-        reader.readAsDataURL(file);
     }
 
     async function restoreDefault() {

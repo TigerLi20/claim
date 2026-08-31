@@ -5,7 +5,8 @@ function getToken() {
 }
 
 async function request(path, { method = "GET", body, auth = true, cache } = {}) {
-  const headers = { "Content-Type": "application/json" };
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  const headers = isFormData ? {} : { "Content-Type": "application/json" };
   if (auth) {
     const token = getToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -14,7 +15,7 @@ async function request(path, { method = "GET", body, auth = true, cache } = {}) 
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
     cache,
   });
 

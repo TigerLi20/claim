@@ -4,21 +4,12 @@ const db = require("../db");
 const { requireAuth } = require("../middleware/auth");
 const stripeLib = require("../lib/stripe");
 const { sendMaybe } = require("../lib/notificationEmail");
+const { prepareImageAssets, deleteImageAssets } = require("../lib/imageAssets");
 
 const router = express.Router();
 const VALID_CATEGORIES = new Set(["academic", "careers", "creative", "other"]);
-const MAX_IMAGES = 3;
-const MAX_IMAGE_LENGTH = 2000000;
 const MAX_TITLE_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 1000;
-
-function parseImages(value) {
-    if (value === undefined) return null;
-    if (!Array.isArray(value) || value.length > MAX_IMAGES || value.some((image) => typeof image !== "string" || image.length > MAX_IMAGE_LENGTH || !/^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(image))) {
-        throw new Error("Add up to 3 valid images, each no larger than 1.5 MB after compression.");
-    }
-    return JSON.stringify(value);
-}
 
 const SERVICE_SELECT = `
   SELECT s.*, u.name AS provider_name, u.year AS provider_year,
@@ -405,13 +396,20 @@ router.post("/", requireAuth, async (req, res) => {
     if (!priceCents || priceCents <= 0) {
         return res.status(400).json({ error: "price must be a positive number" });
     }
-    let imagesJson;
-    try { imagesJson = parseImages(images) || "[]"; } catch (err) { return res.status(400).json({ error: err.message }); }
+    let imageAssets;
+    try { imageAssets = await prepareImageAssets(images, { folder: "claimco/services" }) || []; } catch (err) { return res.status(400).json({ error: err.message }); }
+    const imagesJson = JSON.stringify(imageAssets.map((asset) => asset.url));
+    const imagePublicIdsJson = JSON.stringify(imageAssets.map((asset) => asset.publicId));
     const id = crypto.randomUUID();
-    await db.prepare(
-        `INSERT INTO services (id, category, title, description, images_json, price_cents, price_unit, provider_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(id, category, title.trim(), (description || "").trim(), imagesJson, priceCents, "per booking", req.userId);
+    try {
+        await db.prepare(
+            `INSERT INTO services (id, category, title, description, images_json, image_public_ids_json, price_cents, price_unit, provider_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).run(id, category, title.trim(), (description || "").trim(), imagesJson, imagePublicIdsJson, priceCents, "per booking", req.userId);
+    } catch (error) {
+        await deleteImageAssets(imageAssets.map((asset) => asset.publicId));
+        throw error;
+    }
 
     const row = await db.prepare(`${SERVICE_SELECT} WHERE s.id = ?`).get(id);
     res.status(201).json(serializeService(row));
@@ -441,12 +439,27 @@ router.patch("/:id", requireAuth, async (req, res) => {
     if (!priceCents || priceCents <= 0) {
         return res.status(400).json({ error: "price must be a positive number" });
     }
-    let imagesJson;
-    try { imagesJson = parseImages(images); } catch (err) { return res.status(400).json({ error: err.message }); }
-    if (imagesJson === null) imagesJson = "[]";
+    let imageAssets;
+    try {
+        imageAssets = await prepareImageAssets(images, {
+            folder: "claimco/services",
+            existingImages: JSON.parse(service.images_json || "[]"),
+            existingPublicIds: JSON.parse(service.image_public_ids_json || "[]"),
+        });
+    } catch (err) { return res.status(400).json({ error: err.message }); }
+    if (imageAssets === null) imageAssets = [];
+    const imagesJson = JSON.stringify(imageAssets.map((asset) => asset.url));
+    const imagePublicIdsJson = JSON.stringify(imageAssets.map((asset) => asset.publicId));
+    const newPublicIds = imageAssets.map((asset) => asset.publicId).filter((publicId) => publicId && !JSON.parse(service.image_public_ids_json || "[]").includes(publicId));
 
-    await db.prepare("UPDATE services SET title = ?, description = ?, images_json = ?, price_cents = ? WHERE id = ?")
-        .run(title.trim(), (description || "").trim(), imagesJson, priceCents, service.id);
+    try {
+        await db.prepare("UPDATE services SET title = ?, description = ?, images_json = ?, image_public_ids_json = ?, price_cents = ? WHERE id = ?")
+            .run(title.trim(), (description || "").trim(), imagesJson, imagePublicIdsJson, priceCents, service.id);
+    } catch (error) {
+        await deleteImageAssets(newPublicIds);
+        throw error;
+    }
+    await deleteImageAssets(JSON.parse(service.image_public_ids_json || "[]").filter((publicId) => !imageAssets.some((asset) => asset.publicId === publicId)));
     const row = await db.prepare(`${SERVICE_SELECT} WHERE s.id = ?`).get(service.id);
     res.json(serializeService(row));
 });
@@ -467,11 +480,19 @@ router.post("/:id/reoffer", requireAuth, async (req, res) => {
     if (String(title).trim().length > MAX_TITLE_LENGTH) return res.status(400).json({ error: `Title must be ${MAX_TITLE_LENGTH} characters or fewer` });
     if (String(description || "").length > MAX_DESCRIPTION_LENGTH) return res.status(400).json({ error: `Description must be ${MAX_DESCRIPTION_LENGTH} characters or fewer` });
     if (!priceCents || priceCents <= 0) return res.status(400).json({ error: "price must be a positive number" });
-    let imagesJson;
-    try { imagesJson = parseImages(images) || "[]"; } catch (err) { return res.status(400).json({ error: err.message }); }
+    let imageAssets;
+    try { imageAssets = await prepareImageAssets(images, { folder: "claimco/services" }) || []; } catch (err) { return res.status(400).json({ error: err.message }); }
+    const imagesJson = JSON.stringify(imageAssets.map((asset) => asset.url));
+    const imagePublicIdsJson = JSON.stringify(imageAssets.map((asset) => asset.publicId));
 
-    await db.prepare("UPDATE services SET title = ?, description = ?, images_json = ?, price_cents = ?, status = 'active' WHERE id = ?")
-        .run(title.trim(), (description || "").trim(), imagesJson, priceCents, service.id);
+    try {
+        await db.prepare("UPDATE services SET title = ?, description = ?, images_json = ?, image_public_ids_json = ?, price_cents = ?, status = 'active' WHERE id = ?")
+            .run(title.trim(), (description || "").trim(), imagesJson, imagePublicIdsJson, priceCents, service.id);
+    } catch (error) {
+        await deleteImageAssets(imageAssets.map((asset) => asset.publicId));
+        throw error;
+    }
+    await deleteImageAssets(JSON.parse(service.image_public_ids_json || "[]").filter((publicId) => !imageAssets.some((asset) => asset.publicId === publicId)));
     const row = await db.prepare(`${SERVICE_SELECT} WHERE s.id = ?`).get(service.id);
     res.json(serializeService(row));
 });

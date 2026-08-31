@@ -1,8 +1,9 @@
 import { useRef } from "react";
 
 const MAX_IMAGES = 3;
-const MAX_OUTPUT_BYTES = 1.5 * 1024 * 1024;
-const MAX_DIMENSION = 1800;
+const MAX_OUTPUT_BYTES = 600 * 1024;
+const MAX_DIMENSION = 1400;
+const JPEG_QUALITY = 0.7;
 
 function compressImage(file) {
     return new Promise((resolve, reject) => {
@@ -17,7 +18,7 @@ function compressImage(file) {
                 canvas.width = Math.round(image.width * scale);
                 canvas.height = Math.round(image.height * scale);
                 canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
-                const result = canvas.toDataURL("image/jpeg", 0.8);
+                const result = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
                 if (result.length > MAX_OUTPUT_BYTES) reject(new Error("That image is still too large after compression. Try a smaller image."));
                 else resolve(result);
             };

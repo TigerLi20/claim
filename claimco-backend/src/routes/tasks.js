@@ -5,11 +5,10 @@ const { requireAuth } = require("../middleware/auth");
 const { splitPayment } = require("../lib/money");
 const stripeLib = require("../lib/stripe");
 const { sendMaybe } = require("../lib/notificationEmail");
+const { prepareImageAssets, deleteImageAssets } = require("../lib/imageAssets");
 
 const router = express.Router();
 const VALID_CATEGORIES = new Set(["moveout", "errand", "event"]);
-const MAX_IMAGES = 3;
-const MAX_IMAGE_LENGTH = 2000000;
 const MAX_TITLE_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 1000;
 
@@ -26,14 +25,6 @@ async function expireUnclaimableTasks() {
           AND task_applications.status = 'pending'
       )
   `).run()).changes;
-}
-
-function parseImages(value) {
-  if (value === undefined) return null;
-  if (!Array.isArray(value) || value.length > MAX_IMAGES || value.some((image) => typeof image !== "string" || image.length > MAX_IMAGE_LENGTH || !/^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(image))) {
-    throw new Error("Add up to 3 valid images, each no larger than 1.5 MB after compression.");
-  }
-  return JSON.stringify(value);
 }
 
 async function hasPassedScheduledAt(value) {
@@ -194,8 +185,10 @@ router.post("/", requireAuth, async (req, res) => {
   if (!priceCents || priceCents <= 0) {
     return res.status(400).json({ error: "price must be a positive number" });
   }
-  let imagesJson;
-  try { imagesJson = parseImages(images) || "[]"; } catch (err) { return res.status(400).json({ error: err.message }); }
+  let imageAssets;
+  try { imageAssets = await prepareImageAssets(images, { folder: "claimco/tasks" }) || []; } catch (err) { return res.status(400).json({ error: err.message }); }
+  const imagesJson = JSON.stringify(imageAssets.map((asset) => asset.url));
+  const imagePublicIdsJson = JSON.stringify(imageAssets.map((asset) => asset.publicId));
 
   const requester = await getUser(req.userId);
   const hold = await stripeLib.authorizeHold({
@@ -205,12 +198,17 @@ router.post("/", requireAuth, async (req, res) => {
   });
 
   const id = crypto.randomUUID();
-  await db.prepare(
-    `INSERT INTO tasks (
-      id, category, title, description, scheduled_at, location, notes, images_json, price_cents, requester_id,
+  try {
+    await db.prepare(
+      `INSERT INTO tasks (
+      id, category, title, description, scheduled_at, location, notes, images_json, image_public_ids_json, price_cents, requester_id,
        requester_anonymous, payment_intent_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(id, category, title.trim(), (notes || "").trim(), scheduledAt || null, (location || "").trim(), (notes || "").trim(), imagesJson, priceCents, req.userId, anonymous ? 1 : 0, hold.paymentIntentId);
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(id, category, title.trim(), (notes || "").trim(), scheduledAt || null, (location || "").trim(), (notes || "").trim(), imagesJson, imagePublicIdsJson, priceCents, req.userId, anonymous ? 1 : 0, hold.paymentIntentId);
+  } catch (error) {
+    await deleteImageAssets(imageAssets.map((asset) => asset.publicId));
+    throw error;
+  }
 
   const row = await db.prepare(`${TASK_SELECT} WHERE t.id = ?`).get(id);
   res.status(201).json({ task: serializeTask(row), paymentMock: hold.mock });
@@ -252,12 +250,28 @@ router.patch("/:id", requireAuth, async (req, res) => {
   if (await hasPassedScheduledAt(scheduledAt)) {
     return res.status(400).json({ error: "Task date and time must be at least 10 minutes in the future" });
   }
-  let imagesJson;
-  try { imagesJson = parseImages(images); } catch (err) { return res.status(400).json({ error: err.message }); }
-  if (imagesJson === null) imagesJson = "[]";
-  await db.prepare(
-    "UPDATE tasks SET category = ?, title = ?, description = ?, scheduled_at = ?, location = ?, notes = ?, images_json = ? WHERE id = ?"
-  ).run(category, title.trim(), (notes || "").trim(), scheduledAt || null, (location || "").trim(), (notes || "").trim(), imagesJson, task.id);
+  let imageAssets;
+  try {
+    imageAssets = await prepareImageAssets(images, {
+      folder: "claimco/tasks",
+      existingImages: JSON.parse(task.images_json || "[]"),
+      existingPublicIds: JSON.parse(task.image_public_ids_json || "[]"),
+    });
+  } catch (err) { return res.status(400).json({ error: err.message }); }
+  if (imageAssets === null) imageAssets = [];
+  const imagesJson = JSON.stringify(imageAssets.map((asset) => asset.url));
+  const imagePublicIdsJson = JSON.stringify(imageAssets.map((asset) => asset.publicId));
+  const previousPublicIds = JSON.parse(task.image_public_ids_json || "[]");
+  const newPublicIds = imageAssets.map((asset) => asset.publicId).filter((publicId) => publicId && !previousPublicIds.includes(publicId));
+  try {
+    await db.prepare(
+      "UPDATE tasks SET category = ?, title = ?, description = ?, scheduled_at = ?, location = ?, notes = ?, images_json = ?, image_public_ids_json = ? WHERE id = ?"
+    ).run(category, title.trim(), (notes || "").trim(), scheduledAt || null, (location || "").trim(), (notes || "").trim(), imagesJson, imagePublicIdsJson, task.id);
+  } catch (error) {
+    await deleteImageAssets(newPublicIds);
+    throw error;
+  }
+  await deleteImageAssets(previousPublicIds.filter((publicId) => !imageAssets.some((asset) => asset.publicId === publicId)));
   const row = await db.prepare(`${TASK_SELECT} WHERE t.id = ?`).get(task.id);
   res.json(serializeTask(row));
 });
@@ -302,8 +316,10 @@ router.post("/:id/reoffer", requireAuth, async (req, res) => {
   if (!priceCents || priceCents <= 0) {
     return res.status(400).json({ error: "price must be a positive number" });
   }
-  let imagesJson;
-  try { imagesJson = parseImages(images) || "[]"; } catch (err) { return res.status(400).json({ error: err.message }); }
+  let imageAssets;
+  try { imageAssets = await prepareImageAssets(images, { folder: "claimco/tasks" }) || []; } catch (err) { return res.status(400).json({ error: err.message }); }
+  const imagesJson = JSON.stringify(imageAssets.map((asset) => asset.url));
+  const imagePublicIdsJson = JSON.stringify(imageAssets.map((asset) => asset.publicId));
 
   const requester = await getUser(req.userId);
   const hold = await stripeLib.authorizeHold({
@@ -312,12 +328,17 @@ router.post("/:id/reoffer", requireAuth, async (req, res) => {
     customerEmail: requester.email,
   });
   const id = crypto.randomUUID();
-  await db.prepare(
-    `INSERT INTO tasks (
-      id, category, title, description, scheduled_at, location, notes, images_json, price_cents, requester_id,
+  try {
+    await db.prepare(
+      `INSERT INTO tasks (
+      id, category, title, description, scheduled_at, location, notes, images_json, image_public_ids_json, price_cents, requester_id,
        requester_anonymous, payment_intent_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(id, category, title.trim(), (notes || "").trim(), scheduledAt || null, (location || "").trim(), (notes || "").trim(), imagesJson, priceCents, req.userId, task.requester_anonymous, hold.paymentIntentId);
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(id, category, title.trim(), (notes || "").trim(), scheduledAt || null, (location || "").trim(), (notes || "").trim(), imagesJson, imagePublicIdsJson, priceCents, req.userId, task.requester_anonymous, hold.paymentIntentId);
+  } catch (error) {
+    await deleteImageAssets(imageAssets.map((asset) => asset.publicId));
+    throw error;
+  }
 
   const row = await db.prepare(`${TASK_SELECT} WHERE t.id = ?`).get(id);
   res.status(201).json({ task: serializeTask(row), paymentMock: hold.mock });

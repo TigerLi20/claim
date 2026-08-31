@@ -1,4 +1,5 @@
 const express = require("express");
+const multer = require("multer");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const db = require("../db");
@@ -7,14 +8,26 @@ const deliveryProvider = require("../lib/deliveryProvider.factory");
 const { generateCode, hashCode, getExpiryTime, extractEmailDomain, normalizeEmail, isExpired, verifyCode } = require("../lib/verificationCodes");
 const TEST_IDENTIFIERS = require("../lib/testIdentifiers");
 const rateLimiter = require("../lib/rateLimiter");
+const { isValidImageString, normalizeImageValue, uploadImageAsset } = require("../lib/cloudinary");
+const { deleteImageAssets } = require("../lib/imageAssets");
 
 const router = express.Router();
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 600 * 1024 },
+  fileFilter: (_, file, cb) => {
+    if (!file.mimetype || !file.mimetype.startsWith("image/")) {
+      return cb(new Error("Only image uploads are allowed."));
+    }
+    cb(null, true);
+  },
+});
 
 // Optional: restrict signups to a campus email domain, e.g. "brown.edu".
 // This is one of the simplest trust levers available — it means everyone on
 // the platform is a verified student before you've built anything fancier.
 const ALLOWED_EMAIL_DOMAIN = process.env.ALLOWED_EMAIL_DOMAIN || "";
-const MAX_PROFILE_IMAGE_BYTES = 2 * 1024 * 1024;
+const MAX_PROFILE_IMAGE_BYTES = 600 * 1024;
 const MAX_PROFILE_IMAGE_DATA_LENGTH = Math.ceil(MAX_PROFILE_IMAGE_BYTES / 3) * 4 + 100;
 
 function signToken(user) {
@@ -44,28 +57,61 @@ router.get("/me", requireAuth, async (req, res) => {
   res.json({ user: publicUser(user) });
 });
 
-router.patch("/profile", requireAuth, async (req, res) => {
-  const { name, year, concentration, aboutMe, profileImage } = req.body || {};
-  const cleanName = String(name || "").trim();
-  const cleanYear = String(year || "").trim();
-  const cleanConcentration = String(concentration || "").trim();
+router.patch("/profile", requireAuth, upload.single("profileImage"), async (req, res) => {
+  const currentUser = await db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
+  if (!currentUser) return res.status(404).json({ error: "User not found" });
+
+  const { name, year, concentration, aboutMe } = req.body || {};
+  const hasProfileImageField = req.file || (req.body && Object.prototype.hasOwnProperty.call(req.body, "profileImage"));
+  const profileImage = req.file ? req.file : (hasProfileImageField ? req.body.profileImage : currentUser.profile_image);
+  const cleanName = (name === undefined || name === null ? currentUser.name : String(name)).trim();
+  const cleanYear = (year === undefined || year === null ? currentUser.year || "" : String(year)).trim();
+  const cleanConcentration = (concentration === undefined || concentration === null ? currentUser.concentration || "" : String(concentration)).trim();
 
   if (!cleanName) return res.status(400).json({ error: "name is required" });
   if (cleanName.length > 80) return res.status(400).json({ error: "name is too long" });
   if (cleanYear.length > 40) return res.status(400).json({ error: "year is too long" });
   if (cleanConcentration.length > 100) return res.status(400).json({ error: "concentration is too long" });
-  const cleanAboutMe = String(aboutMe || "").trim();
+  const cleanAboutMe = (aboutMe === undefined || aboutMe === null ? currentUser.about_me || "" : String(aboutMe)).trim();
   if (cleanAboutMe.length > 500) return res.status(400).json({ error: "about me is too long" });
-  if (profileImage !== null && profileImage !== "" && !/^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(profileImage)) {
-    return res.status(400).json({ error: "profile image must be a valid image upload" });
-  }
-  if (profileImage && profileImage.length > MAX_PROFILE_IMAGE_DATA_LENGTH) {
-    return res.status(413).json({ error: "File size is too large. The maximum profile picture size is 2 MB." });
+
+  let finalProfileImage = normalizeImageValue(profileImage && typeof profileImage === "string" ? profileImage : null);
+  let finalProfileImagePublicId = finalProfileImage === currentUser.profile_image ? currentUser.profile_image_public_id || null : null;
+
+  if (req.file) {
+    try {
+      const asset = await uploadImageAsset(req.file, { folder: "claimco/users", mimeType: req.file.mimetype || "image/jpeg" });
+      finalProfileImage = asset.url;
+      finalProfileImagePublicId = asset.publicId;
+    } catch (error) {
+      console.error("Profile image upload failed:", error);
+      return res.status(500).json({ error: "Profile image upload failed." });
+    }
+  } else if (finalProfileImage !== null && finalProfileImage !== "") {
+    const isLegacyBase64 = /^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(finalProfileImage);
+    const isCloudinaryUrl = isValidImageString(finalProfileImage);
+
+    if (!isLegacyBase64 && !isCloudinaryUrl) {
+      return res.status(400).json({ error: "profile image must be a valid image upload" });
+    }
+
+    if (isLegacyBase64 && finalProfileImage.length > MAX_PROFILE_IMAGE_DATA_LENGTH) {
+      return res.status(413).json({ error: "File size is too large. The maximum profile picture size is 600 KB after compression." });
+    }
   }
 
-  await db.prepare(
-    `UPDATE users SET name = ?, year = ?, concentration = ?, about_me = ?, profile_image = ? WHERE id = ?`
-  ).run(cleanName, cleanYear, cleanConcentration, cleanAboutMe, profileImage || null, req.userId);
+  try {
+    await db.prepare(
+      `UPDATE users SET name = ?, year = ?, concentration = ?, about_me = ?, profile_image = ?, profile_image_public_id = ? WHERE id = ?`
+    ).run(cleanName, cleanYear, cleanConcentration, cleanAboutMe, finalProfileImage || null, finalProfileImagePublicId, req.userId);
+  } catch (error) {
+    if (req.file && finalProfileImagePublicId) await deleteImageAssets([finalProfileImagePublicId]);
+    throw error;
+  }
+
+  if (currentUser.profile_image_public_id && currentUser.profile_image_public_id !== finalProfileImagePublicId) {
+    await deleteImageAssets([currentUser.profile_image_public_id]);
+  }
 
   const user = await db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
   res.json({ user: publicUser(user) });
