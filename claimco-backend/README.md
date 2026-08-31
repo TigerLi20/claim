@@ -14,8 +14,8 @@ to fully complete.
 ## Stack
 
 - **Express** — HTTP API
-- **better-sqlite3** — single-file SQL database, zero setup, easy to swap for
-  Postgres later (see "Moving to Postgres" below)
+- **PostgreSQL** via `pg` (with an optional SQLite fallback retained for local
+   compatibility tests)
 - **bcryptjs** — password hashing
 - **jsonwebtoken** — auth tokens
 - **stripe** — Connect (worker payouts) + PaymentIntents (holding a
@@ -175,15 +175,15 @@ all codes are random 6-digit numbers sent via your configured email service.
 - **Development** (`NODE_ENV=development`): Uses Ethereal (free test SMTP) with preview links in console output
 - **Production** (stub): Currently not implemented; set up SendGrid, SES, or other provider in `src/lib/deliveryProvider.production.js`
 
-## Moving to Postgres later
+## PostgreSQL
 
-The only file that knows about SQLite specifically is `src/db/index.js` and
-the `datetime('now')` / `CHECK (...)` syntax in `src/db/schema.sql`. When
-you're ready for a real host (Render, Railway, Fly, RDS), swap
-`better-sqlite3` for `pg`, adjust that one connection file, and translate the
-schema's SQLite-specific syntax to Postgres equivalents — the route files
-don't need to change since they only call `db.prepare(...).get/all/run(...)`,
-which is easy to wrap with an equivalent `pg` helper.
+Set `DATABASE_URL` to a PostgreSQL connection string. The backend initializes
+the schema and the default approved school domain before it starts listening.
+The runtime database operations, transactions, timestamps, identity columns,
+and insert IDs are PostgreSQL-compatible. `DATABASE_PATH` is only used when
+`DATABASE_URL` is absent, which keeps the existing SQLite compatibility tests
+available without affecting Postgres deployments. A real local PostgreSQL
+smoke test should be run before deploying to Render.
 
 ## Wiring up the frontend
 

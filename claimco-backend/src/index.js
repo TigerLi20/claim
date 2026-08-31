@@ -55,35 +55,40 @@ const httpServer = http.createServer(app);
 const io = new Server(httpServer, { cors: { origin: true } });
 registerChatSocket(io);
 
-// Cleanup jobs
-taskRoutes.expireUnclaimableTasks();
-setInterval(() => taskRoutes.expireUnclaimableTasks(), 30000);
-
-// Clean up abandoned pending users every 10 minutes
-function cleanupAbandonedPendingUsers() {
+async function cleanupAbandonedPendingUsers() {
   const cutoffTime = new Date(Date.now() - 15 * 60 * 1000); // 15 minutes ago
   const isoTime = cutoffTime.toISOString();
+  const isPostgres = !!process.env.DATABASE_URL;
+
+  const verificationCleanupSql = isPostgres
+    ? "DELETE FROM verification_codes WHERE pending_user_id IN (SELECT id FROM users WHERE status = 'pending' AND created_at < $1::timestamptz)"
+    : "DELETE FROM verification_codes WHERE pending_user_id IN (SELECT id FROM users WHERE status = 'pending' AND created_at < datetime(?, 'auto'))";
+
+  const userCleanupSql = isPostgres
+    ? "DELETE FROM users WHERE status = 'pending' AND created_at < $1::timestamptz"
+    : "DELETE FROM users WHERE status = 'pending' AND created_at < datetime(?, 'auto')";
 
   // First delete verification codes for abandoned users (foreign key constraint)
-  db.prepare(
-    "DELETE FROM verification_codes WHERE pending_user_id IN (SELECT id FROM users WHERE status = 'pending' AND created_at < datetime(?, 'auto'))"
-  ).run(isoTime);
+  await db.prepare(verificationCleanupSql).run(isoTime);
 
   // Then delete the abandoned pending users
-  const result = db.prepare(
-    "DELETE FROM users WHERE status = 'pending' AND created_at < datetime(?, 'auto')"
-  ).run(isoTime);
+  const result = await db.prepare(userCleanupSql).run(isoTime);
   if (result.changes > 0) {
     console.log(`[Cleanup] Deleted ${result.changes} abandoned pending users`);
   }
 }
-cleanupAbandonedPendingUsers();
-setInterval(cleanupAbandonedPendingUsers, 10 * 60 * 1000);
-
-// Clean up rate limiter entries every hour
 const rateLimiter = require("./lib/rateLimiter");
-setInterval(() => rateLimiter.cleanup(), 60 * 60 * 1000);
 
-httpServer.listen(PORT, () => {
-  console.log(`Claim backend listening on http://localhost:${PORT}`);
+Promise.resolve(db.ready).then(async () => {
+  await taskRoutes.expireUnclaimableTasks();
+  setInterval(() => taskRoutes.expireUnclaimableTasks().catch(console.error), 30000);
+  await cleanupAbandonedPendingUsers();
+  setInterval(() => cleanupAbandonedPendingUsers().catch(console.error), 10 * 60 * 1000);
+  setInterval(() => rateLimiter.cleanup(), 60 * 60 * 1000);
+
+  httpServer.listen(PORT, () => {
+    console.log(`Claim backend listening on http://localhost:${PORT}`);
+  });
+}).catch(() => {
+  process.exit(1);
 });

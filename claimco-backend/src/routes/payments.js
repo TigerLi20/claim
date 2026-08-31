@@ -11,10 +11,10 @@ const router = express.Router();
 // details entirely on Stripe's hosted flow — none of that sensitive data
 // ever touches this server.
 router.post("/connect/onboard", requireAuth, async (req, res) => {
-  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
+  const user = await db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
   const { accountId, onboardingUrl, mock } = await stripeLib.startConnectOnboarding(user);
 
-  db.prepare("UPDATE users SET stripe_account_id = ? WHERE id = ?").run(accountId, user.id);
+  await db.prepare("UPDATE users SET stripe_account_id = ? WHERE id = ?").run(accountId, user.id);
 
   res.json({ onboardingUrl, mock });
 });
@@ -23,8 +23,8 @@ router.post("/connect/onboard", requireAuth, async (req, res) => {
 // can't hit Stripe's real onboarding flow (or its webhook) from this
 // environment. In production, a `account.updated` webhook event with
 // `charges_enabled: true` is what should flip this flag, not a client call.
-router.post("/connect/mark-onboarded", requireAuth, (req, res) => {
-  db.prepare("UPDATE users SET stripe_onboarded = 1 WHERE id = ?").run(req.userId);
+router.post("/connect/mark-onboarded", requireAuth, async (req, res) => {
+  await db.prepare("UPDATE users SET stripe_onboarded = 1 WHERE id = ?").run(req.userId);
   res.json({ ok: true });
 });
 

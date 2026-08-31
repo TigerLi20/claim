@@ -5,6 +5,45 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 
+test("Production delivery provider uses Resend and does not trigger allowlist bypass in production", async () => {
+    const previousEnv = { ...process.env };
+
+    try {
+        delete require.cache[require.resolve("../src/lib/deliveryProvider.production")];
+        process.env.NODE_ENV = "production";
+        process.env.RESEND_API_KEY = "re_test_123";
+        process.env.EMAIL_FROM = "verify@example.com";
+
+        const ProductionDeliveryProvider = require("../src/lib/deliveryProvider.production");
+        const provider = new ProductionDeliveryProvider();
+
+        const called = { sent: false };
+        provider.resend = {
+            emails: {
+                send: async (payload) => {
+                    called.sent = true;
+                    assert.equal(payload.from, "verify@example.com");
+                    assert.equal(payload.subject, "Verify your Claim Co email");
+                    assert.equal(payload.to, "student@example.com");
+                    return { id: "test-email-id" };
+                }
+            }
+        };
+
+        await provider.sendEmail("student@example.com", "123456");
+        assert.equal(called.sent, true);
+
+        const TEST_IDENTIFIERS = require("../src/lib/testIdentifiers");
+        const testCode = TEST_IDENTIFIERS["test.student@brown.edu"];
+        assert.equal(testCode, "000000");
+        assert.equal(process.env.NODE_ENV, "production");
+        assert.equal(process.env.NODE_ENV !== "production" && TEST_IDENTIFIERS["test.student@brown.edu"], false);
+    } finally {
+        process.env = previousEnv;
+        delete require.cache[require.resolve("../src/lib/deliveryProvider.production")];
+    }
+});
+
 // Setup test database
 const DB_PATH = path.join(__dirname, "../dev-test.db");
 

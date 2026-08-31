@@ -1,5 +1,4 @@
-// Change this if your backend runs somewhere other than localhost:3001.
-export const API_BASE = "http://localhost:3001";
+export const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3001";
 
 function getToken() {
   return localStorage.getItem("claimco_token");

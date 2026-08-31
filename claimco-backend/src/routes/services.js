@@ -48,13 +48,13 @@ function serializeService(row) {
     };
 }
 
-router.get("/", requireAuth, (req, res) => {
-    const rows = db
+router.get("/", requireAuth, async (req, res) => {
+    const rows = await db
         .prepare(`${SERVICE_SELECT}
       WHERE s.status = 'active'
       ORDER BY s.created_at DESC`)
         .all();
-        const purchased = db.prepare(`
+    const purchased = await db.prepare(`
                 SELECT p.id, p.service_id, p.confirmation_status, p.provider_completed, p.buyer_completed
                 FROM service_purchases p
                 WHERE p.buyer_id = ? AND p.confirmation_status != 'declined'
@@ -66,29 +66,29 @@ router.get("/", requireAuth, (req, res) => {
                         ORDER BY latest.created_at DESC, latest.id DESC LIMIT 1
                     )
         `).all(req.userId);
-        const purchaseStates = new Map(purchased.map((purchase) => [purchase.service_id, purchase]));
-        res.json(rows.map((row) => {
-                const purchase = purchaseStates.get(row.id);
-                const fulfilled = !!(purchase?.provider_completed && purchase?.buyer_completed);
-                return {
-                        ...serializeService(row),
-                        isPurchased: !!purchase && !fulfilled,
-                        purchaseId: purchase?.confirmation_status === "confirmed" ? purchase.id : null,
-                        claimStatus: purchase && !fulfilled ? purchase.confirmation_status : null,
-                        claimPhase: !purchase || fulfilled ? "open" : purchase.confirmation_status === "confirmed" ? "claimed" : null,
-                };
-        }));
+    const purchaseStates = new Map(purchased.map((purchase) => [purchase.service_id, purchase]));
+    res.json(rows.map((row) => {
+        const purchase = purchaseStates.get(row.id);
+        const fulfilled = !!(purchase?.provider_completed && purchase?.buyer_completed);
+        return {
+            ...serializeService(row),
+            isPurchased: !!purchase && !fulfilled,
+            purchaseId: purchase?.confirmation_status === "confirmed" ? purchase.id : null,
+            claimStatus: purchase && !fulfilled ? purchase.confirmation_status : null,
+            claimPhase: !purchase || fulfilled ? "open" : purchase.confirmation_status === "confirmed" ? "claimed" : null,
+        };
+    }));
 });
 
-router.get("/mine", requireAuth, (req, res) => {
-    const rows = db
+router.get("/mine", requireAuth, async (req, res) => {
+    const rows = await db
         .prepare(`${SERVICE_SELECT} WHERE s.provider_id = ? ORDER BY s.created_at DESC`)
         .all(req.userId);
     res.json(rows.map(serializeService));
 });
 
-router.get("/purchased", requireAuth, (req, res) => {
-    const rows = db.prepare(`
+router.get("/purchased", requireAuth, async (req, res) => {
+    const rows = await db.prepare(`
         SELECT p.*, s.title, s.description, s.category, s.price_unit,
             s.provider_id, u.name AS provider_name, u.year AS provider_year,
             u.concentration AS provider_concentration, u.profile_image AS provider_profile_image,
@@ -135,8 +135,8 @@ router.get("/purchased", requireAuth, (req, res) => {
     })));
 });
 
-router.get("/instances", requireAuth, (req, res) => {
-    const rows = db.prepare(`
+router.get("/instances", requireAuth, async (req, res) => {
+    const rows = await db.prepare(`
         SELECT p.*, s.title, s.price_unit, s.provider_id,
             u.name AS buyer_name, u.year AS buyer_year,
             u.concentration AS buyer_concentration, u.profile_image AS buyer_profile_image
@@ -167,8 +167,8 @@ router.get("/instances", requireAuth, (req, res) => {
     })));
 });
 
-router.get("/instances/:id", requireAuth, (req, res) => {
-    const row = db.prepare(`
+router.get("/instances/:id", requireAuth, async (req, res) => {
+    const row = await db.prepare(`
         SELECT p.*, s.title, s.description, s.images_json, s.price_unit, s.provider_id,
             provider.name AS provider_name, provider.year AS provider_year,
             provider.concentration AS provider_concentration, provider.profile_image AS provider_profile_image,
@@ -217,10 +217,10 @@ router.get("/instances/:id", requireAuth, (req, res) => {
     });
 });
 
-router.get("/:id", requireAuth, (req, res) => {
-    const row = db.prepare(`${SERVICE_SELECT} WHERE s.id = ?`).get(req.params.id);
+router.get("/:id", requireAuth, async (req, res) => {
+    const row = await db.prepare(`${SERVICE_SELECT} WHERE s.id = ?`).get(req.params.id);
     if (!row) return res.status(404).json({ error: "Tutoring offer not found" });
-    const purchase = db.prepare(`
+    const purchase = await db.prepare(`
         SELECT p.confirmation_status, p.provider_completed, p.buyer_completed
         FROM service_purchases p
         WHERE p.service_id = ? AND p.buyer_id = ? AND p.confirmation_status != 'declined'
@@ -233,7 +233,7 @@ router.get("/:id", requireAuth, (req, res) => {
             )
     `).get(row.id, req.userId);
     const detailPurchase = req.query.purchase
-        ? db.prepare("SELECT p.id, p.buyer_id, p.provider_completed, p.buyer_completed, p.confirmation_status FROM service_purchases p WHERE p.id = ? AND p.service_id = ?").get(req.query.purchase, row.id)
+        ? await db.prepare("SELECT p.id, p.buyer_id, p.provider_completed, p.buyer_completed, p.confirmation_status FROM service_purchases p WHERE p.id = ? AND p.service_id = ?").get(req.query.purchase, row.id)
         : null;
     if (detailPurchase && detailPurchase.buyer_id !== req.userId && row.provider_id !== req.userId) {
         return res.status(404).json({ error: "Service purchase not found" });
@@ -254,24 +254,24 @@ router.get("/:id", requireAuth, (req, res) => {
 });
 
 router.post("/:id/purchase", requireAuth, async (req, res) => {
-    const service = db.prepare("SELECT * FROM services WHERE id = ?").get(req.params.id);
+    const service = await db.prepare("SELECT * FROM services WHERE id = ?").get(req.params.id);
     if (!service) return res.status(404).json({ error: "Tutoring offer not found" });
     if (service.status !== "active") return res.status(409).json({ error: "This tutoring offer is not currently available" });
     if (service.provider_id === req.userId) return res.status(400).json({ error: "You cannot purchase your own tutoring offer" });
-    const existingPurchase = db.prepare("SELECT 1 FROM service_purchases WHERE service_id = ? AND buyer_id = ? AND confirmation_status != 'declined' AND status != 'cancelled' AND NOT (provider_completed = 1 AND buyer_completed = 1) AND julianday('now') - julianday(created_at) < 1").get(service.id, req.userId);
+    const existingPurchase = await db.prepare("SELECT 1 FROM service_purchases WHERE service_id = ? AND buyer_id = ? AND confirmation_status != 'declined' AND status != 'cancelled' AND NOT (provider_completed = 1 AND buyer_completed = 1) AND julianday('now') - julianday(created_at) < 1").get(service.id, req.userId);
     if (existingPurchase) {
         return res.status(409).json({ error: "You have already purchased this tutoring offer" });
     }
     const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 50) : "";
 
-    const buyer = db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
+    const buyer = await db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
     const hold = await stripeLib.authorizeHold({
         amountCents: service.price_cents,
         paymentMethodId: req.body?.paymentMethodId,
         customerEmail: buyer.email,
     });
     const id = crypto.randomUUID();
-    db.prepare(`
+    await db.prepare(`
     INSERT INTO service_purchases (id, service_id, buyer_id, purchase_type, status, price_cents, payment_intent_id, used_at, request_note)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
@@ -285,14 +285,14 @@ router.post("/:id/purchase", requireAuth, async (req, res) => {
         new Date().toISOString(),
         note
     );
-    db.prepare("UPDATE service_purchases SET confirmation_status = 'pending' WHERE id = ?").run(id);
-    db.prepare("INSERT INTO notifications (id, recipient_id, type, service_id, purchase_id, actor_id, message) VALUES (?, ?, 'service_purchase', ?, ?, ?, ?)")
+    await db.prepare("UPDATE service_purchases SET confirmation_status = 'pending' WHERE id = ?").run(id);
+    await db.prepare("INSERT INTO notifications (id, recipient_id, type, service_id, purchase_id, actor_id, message) VALUES (?, ?, 'service_purchase', ?, ?, ?, ?)")
         .run(crypto.randomUUID(), service.provider_id, service.id, id, req.userId, `Someone wants to claim your tutoring offer.${note ? ` Note: ${note}` : ""}`);
     res.status(201).json({ id, serviceId: service.id, purchaseType: "one_time", price: service.price_cents / 100, status: "used", paymentMock: hold.mock });
 });
 
-router.post("/instances/:id/complete", requireAuth, (req, res) => {
-    const purchase = db.prepare(`
+router.post("/instances/:id/complete", requireAuth, async (req, res) => {
+    const purchase = await db.prepare(`
         SELECT p.*, s.provider_id
         FROM service_purchases p JOIN services s ON s.id = p.service_id
         WHERE p.id = ?
@@ -305,53 +305,53 @@ router.post("/instances/:id/complete", requireAuth, (req, res) => {
     const providerCompleted = purchase.provider_completed || isProvider ? 1 : 0;
     const buyerCompleted = purchase.buyer_completed || isBuyer ? 1 : 0;
     const wasFulfilled = !!(purchase.provider_completed && purchase.buyer_completed);
-    db.prepare("UPDATE service_purchases SET provider_completed = ?, buyer_completed = ?, status = ? WHERE id = ?")
+    await db.prepare("UPDATE service_purchases SET provider_completed = ?, buyer_completed = ?, status = ? WHERE id = ?")
         .run(providerCompleted, buyerCompleted, providerCompleted && buyerCompleted ? "used" : "active", purchase.id);
     if (providerCompleted && buyerCompleted && !wasFulfilled) {
-        db.prepare("INSERT INTO notifications (id, recipient_id, type, service_id, purchase_id, actor_id, message) VALUES (?, ?, 'review_request', ?, ?, ?, ?)")
+        await db.prepare("INSERT INTO notifications (id, recipient_id, type, service_id, purchase_id, actor_id, message) VALUES (?, ?, 'review_request', ?, ?, ?, ?)")
             .run(crypto.randomUUID(), purchase.buyer_id, purchase.service_id, purchase.id, purchase.provider_id, "Your tutoring session was fully fulfilled. Leave a review.");
-        db.prepare("INSERT INTO notifications (id, recipient_id, type, service_id, purchase_id, actor_id, message) VALUES (?, ?, 'review_request', ?, ?, ?, ?)")
+        await db.prepare("INSERT INTO notifications (id, recipient_id, type, service_id, purchase_id, actor_id, message) VALUES (?, ?, 'review_request', ?, ?, ?, ?)")
             .run(crypto.randomUUID(), purchase.provider_id, purchase.service_id, purchase.id, purchase.buyer_id, "Your tutoring session was fully fulfilled. Leave a review.");
     }
     res.json({ ok: true, fulfilled: !!(providerCompleted && buyerCompleted) });
 });
 
-router.get("/:id/customers", requireAuth, (req, res) => {
-    const service = db.prepare("SELECT * FROM services WHERE id = ?").get(req.params.id);
+router.get("/:id/customers", requireAuth, async (req, res) => {
+    const service = await db.prepare("SELECT * FROM services WHERE id = ?").get(req.params.id);
     if (!service) return res.status(404).json({ error: "Tutoring offer not found" });
     if (service.provider_id !== req.userId) return res.status(403).json({ error: "Only the tutor can view student requests" });
-    const rows = db.prepare(`SELECT p.id, p.purchase_type, p.status, p.confirmation_status, p.created_at, u.id AS buyer_id, u.name AS buyer_name FROM service_purchases p JOIN users u ON u.id = p.buyer_id WHERE p.service_id = ? AND p.confirmation_status = 'pending' ORDER BY p.created_at`).all(service.id);
+    const rows = await db.prepare(`SELECT p.id, p.purchase_type, p.status, p.confirmation_status, p.created_at, u.id AS buyer_id, u.name AS buyer_name FROM service_purchases p JOIN users u ON u.id = p.buyer_id WHERE p.service_id = ? AND p.confirmation_status = 'pending' ORDER BY p.created_at`).all(service.id);
     res.json(rows.map((row) => ({ id: row.id, buyer: { id: row.buyer_id, name: row.buyer_name }, status: row.confirmation_status, createdAt: row.created_at })));
 });
 
-router.post("/:id/customers/:purchaseId/confirm", requireAuth, (req, res) => {
-    const service = db.prepare("SELECT * FROM services WHERE id = ?").get(req.params.id);
+router.post("/:id/customers/:purchaseId/confirm", requireAuth, async (req, res) => {
+    const service = await db.prepare("SELECT * FROM services WHERE id = ?").get(req.params.id);
     if (!service) return res.status(404).json({ error: "Tutoring offer not found" });
     if (service.provider_id !== req.userId) return res.status(403).json({ error: "Only the tutor can confirm students" });
     if (service.status !== "active") return res.status(409).json({ error: "This tutoring offer is paused and can no longer accept new claims" });
-    const result = db.prepare("UPDATE service_purchases SET confirmation_status = 'confirmed' WHERE id = ? AND service_id = ? AND confirmation_status = 'pending'").run(req.params.purchaseId, service.id);
+    const result = await db.prepare("UPDATE service_purchases SET confirmation_status = 'confirmed' WHERE id = ? AND service_id = ? AND confirmation_status = 'pending'").run(req.params.purchaseId, service.id);
     if (!result.changes) return res.status(409).json({ error: "Purchase is no longer pending" });
-    const purchase = db.prepare("SELECT buyer_id FROM service_purchases WHERE id = ?").get(req.params.purchaseId);
-    const conversationId = require("../lib/conversations").getConversationId(purchase.buyer_id, service.provider_id);
-    db.prepare("UPDATE notifications SET read_at = datetime('now') WHERE purchase_id = ?").run(req.params.purchaseId);
-    db.prepare("INSERT INTO notifications (id, recipient_id, type, service_id, purchase_id, actor_id, message) VALUES (?, ?, 'service_confirmed', ?, ?, ?, ?)").run(crypto.randomUUID(), purchase.buyer_id, service.id, req.params.purchaseId, req.userId, "Your tutoring claim was accepted.");
-    db.prepare("INSERT INTO notifications (id, recipient_id, type, service_id, purchase_id, actor_id, message) VALUES (?, ?, 'service_confirmation_sent', ?, ?, ?, ?)").run(crypto.randomUUID(), req.userId, service.id, req.params.purchaseId, purchase.buyer_id, "You accepted a request for this tutoring offer.");
+    const purchase = await db.prepare("SELECT buyer_id FROM service_purchases WHERE id = ?").get(req.params.purchaseId);
+    const conversationId = await require("../lib/conversations").getConversationId(purchase.buyer_id, service.provider_id);
+    await db.prepare("UPDATE notifications SET read_at = datetime('now') WHERE purchase_id = ?").run(req.params.purchaseId);
+    await db.prepare("INSERT INTO notifications (id, recipient_id, type, service_id, purchase_id, actor_id, message) VALUES (?, ?, 'service_confirmed', ?, ?, ?, ?)").run(crypto.randomUUID(), purchase.buyer_id, service.id, req.params.purchaseId, req.userId, "Your tutoring claim was accepted.");
+    await db.prepare("INSERT INTO notifications (id, recipient_id, type, service_id, purchase_id, actor_id, message) VALUES (?, ?, 'service_confirmation_sent', ?, ?, ?, ?)").run(crypto.randomUUID(), req.userId, service.id, req.params.purchaseId, purchase.buyer_id, "You accepted a request for this tutoring offer.");
     res.json({ ok: true, conversationId });
 });
 
-router.post("/:id/customers/:purchaseId/decline", requireAuth, (req, res) => {
-    const service = db.prepare("SELECT * FROM services WHERE id = ?").get(req.params.id);
+router.post("/:id/customers/:purchaseId/decline", requireAuth, async (req, res) => {
+    const service = await db.prepare("SELECT * FROM services WHERE id = ?").get(req.params.id);
     if (!service) return res.status(404).json({ error: "Tutoring offer not found" });
     if (service.provider_id !== req.userId) return res.status(403).json({ error: "Only the tutor can decline students" });
-    const result = db.prepare("UPDATE service_purchases SET confirmation_status = 'declined' WHERE id = ? AND service_id = ? AND confirmation_status = 'pending'").run(req.params.purchaseId, service.id);
+    const result = await db.prepare("UPDATE service_purchases SET confirmation_status = 'declined' WHERE id = ? AND service_id = ? AND confirmation_status = 'pending'").run(req.params.purchaseId, service.id);
     if (!result.changes) return res.status(409).json({ error: "Purchase is no longer pending" });
-    db.prepare("UPDATE notifications SET read_at = datetime('now') WHERE purchase_id = ?").run(req.params.purchaseId);
-    const purchase = db.prepare("SELECT buyer_id FROM service_purchases WHERE id = ?").get(req.params.purchaseId);
-    db.prepare("INSERT INTO notifications (id, recipient_id, type, service_id, purchase_id, actor_id, message) VALUES (?, ?, 'service_declined', ?, ?, ?, ?)").run(crypto.randomUUID(), purchase.buyer_id, service.id, req.params.purchaseId, req.userId, "Your tutoring claim was declined.");
+    await db.prepare("UPDATE notifications SET read_at = datetime('now') WHERE purchase_id = ?").run(req.params.purchaseId);
+    const purchase = await db.prepare("SELECT buyer_id FROM service_purchases WHERE id = ?").get(req.params.purchaseId);
+    await db.prepare("INSERT INTO notifications (id, recipient_id, type, service_id, purchase_id, actor_id, message) VALUES (?, ?, 'service_declined', ?, ?, ?, ?)").run(crypto.randomUUID(), purchase.buyer_id, service.id, req.params.purchaseId, req.userId, "Your tutoring claim was declined.");
     res.json({ ok: true });
 });
 
-router.post("/", requireAuth, (req, res) => {
+router.post("/", requireAuth, async (req, res) => {
     const { category, title, description, price, images } = req.body || {};
     if (!VALID_CATEGORIES.has(category)) {
         return res.status(400).json({ error: `category must be one of: ${[...VALID_CATEGORIES].join(", ")}` });
@@ -372,17 +372,17 @@ router.post("/", requireAuth, (req, res) => {
     let imagesJson;
     try { imagesJson = parseImages(images) || "[]"; } catch (err) { return res.status(400).json({ error: err.message }); }
     const id = crypto.randomUUID();
-    db.prepare(
+    await db.prepare(
         `INSERT INTO services (id, category, title, description, images_json, price_cents, price_unit, provider_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(id, category, title.trim(), (description || "").trim(), imagesJson, priceCents, "per booking", req.userId);
 
-    const row = db.prepare(`${SERVICE_SELECT} WHERE s.id = ?`).get(id);
+    const row = await db.prepare(`${SERVICE_SELECT} WHERE s.id = ?`).get(id);
     res.status(201).json(serializeService(row));
 });
 
-router.patch("/:id", requireAuth, (req, res) => {
-    const service = db.prepare("SELECT * FROM services WHERE id = ?").get(req.params.id);
+router.patch("/:id", requireAuth, async (req, res) => {
+    const service = await db.prepare("SELECT * FROM services WHERE id = ?").get(req.params.id);
     if (!service) return res.status(404).json({ error: "Tutoring offer not found" });
     if (service.provider_id !== req.userId) {
         return res.status(403).json({ error: "Only the tutor can edit this tutoring offer" });
@@ -409,14 +409,14 @@ router.patch("/:id", requireAuth, (req, res) => {
     try { imagesJson = parseImages(images); } catch (err) { return res.status(400).json({ error: err.message }); }
     if (imagesJson === null) imagesJson = "[]";
 
-    db.prepare("UPDATE services SET title = ?, description = ?, images_json = ?, price_cents = ? WHERE id = ?")
+    await db.prepare("UPDATE services SET title = ?, description = ?, images_json = ?, price_cents = ? WHERE id = ?")
         .run(title.trim(), (description || "").trim(), imagesJson, priceCents, service.id);
-    const row = db.prepare(`${SERVICE_SELECT} WHERE s.id = ?`).get(service.id);
+    const row = await db.prepare(`${SERVICE_SELECT} WHERE s.id = ?`).get(service.id);
     res.json(serializeService(row));
 });
 
-router.post("/:id/reoffer", requireAuth, (req, res) => {
-    const service = db.prepare("SELECT * FROM services WHERE id = ?").get(req.params.id);
+router.post("/:id/reoffer", requireAuth, async (req, res) => {
+    const service = await db.prepare("SELECT * FROM services WHERE id = ?").get(req.params.id);
     if (!service) return res.status(404).json({ error: "Tutoring offer not found" });
     if (service.provider_id !== req.userId) {
         return res.status(403).json({ error: "Only the tutor can re-offer this tutoring offer" });
@@ -434,44 +434,44 @@ router.post("/:id/reoffer", requireAuth, (req, res) => {
     let imagesJson;
     try { imagesJson = parseImages(images) || "[]"; } catch (err) { return res.status(400).json({ error: err.message }); }
 
-    db.prepare("UPDATE services SET title = ?, description = ?, images_json = ?, price_cents = ?, status = 'active' WHERE id = ?")
+    await db.prepare("UPDATE services SET title = ?, description = ?, images_json = ?, price_cents = ?, status = 'active' WHERE id = ?")
         .run(title.trim(), (description || "").trim(), imagesJson, priceCents, service.id);
-    const row = db.prepare(`${SERVICE_SELECT} WHERE s.id = ?`).get(service.id);
+    const row = await db.prepare(`${SERVICE_SELECT} WHERE s.id = ?`).get(service.id);
     res.json(serializeService(row));
 });
 
-router.post("/:id/deactivate", requireAuth, (req, res) => {
-    const service = db.prepare("SELECT * FROM services WHERE id = ?").get(req.params.id);
+router.post("/:id/deactivate", requireAuth, async (req, res) => {
+    const service = await db.prepare("SELECT * FROM services WHERE id = ?").get(req.params.id);
     if (!service) return res.status(404).json({ error: "Tutoring offer not found" });
     if (service.provider_id !== req.userId) {
         return res.status(403).json({ error: "Only the tutor can deactivate this tutoring offer" });
     }
 
-    db.transaction(() => {
-        const pending = db.prepare("SELECT id, buyer_id FROM service_purchases WHERE service_id = ? AND confirmation_status = 'pending'").all(service.id);
+    await db.transaction(async (transactionDb) => {
+        const pending = await transactionDb.prepare("SELECT id, buyer_id FROM service_purchases WHERE service_id = ? AND confirmation_status = 'pending'").all(service.id);
         if (pending.length > 0) {
-            db.prepare("UPDATE service_purchases SET confirmation_status = 'declined' WHERE service_id = ? AND confirmation_status = 'pending'").run(service.id);
-            db.prepare("UPDATE notifications SET read_at = datetime('now') WHERE service_id = ? AND type = 'service_purchase'").run(service.id);
-            const addDeclineNotification = db.prepare("INSERT INTO notifications (id, recipient_id, type, service_id, purchase_id, actor_id, message) VALUES (?, ?, 'service_declined', ?, ?, ?, ?)");
+            await transactionDb.prepare("UPDATE service_purchases SET confirmation_status = 'declined' WHERE service_id = ? AND confirmation_status = 'pending'").run(service.id);
+            await transactionDb.prepare("UPDATE notifications SET read_at = datetime('now') WHERE service_id = ? AND type = 'service_purchase'").run(service.id);
+            const addDeclineNotification = transactionDb.prepare("INSERT INTO notifications (id, recipient_id, type, service_id, purchase_id, actor_id, message) VALUES (?, ?, 'service_declined', ?, ?, ?, ?)");
             for (const purchase of pending) {
-                addDeclineNotification.run(crypto.randomUUID(), purchase.buyer_id, service.id, purchase.id, req.userId, "Your tutoring claim was declined.");
+                await addDeclineNotification.run(crypto.randomUUID(), purchase.buyer_id, service.id, purchase.id, req.userId, "Your tutoring claim was declined.");
             }
         }
-        db.prepare("UPDATE services SET status = 'inactive' WHERE id = ?").run(service.id);
-    })();
+        await transactionDb.prepare("UPDATE services SET status = 'inactive' WHERE id = ?").run(service.id);
+    });
 
-    const row = db.prepare(`${SERVICE_SELECT} WHERE s.id = ?`).get(service.id);
+    const row = await db.prepare(`${SERVICE_SELECT} WHERE s.id = ?`).get(service.id);
     res.json(serializeService(row));
 });
 
-router.post("/:id/activate", requireAuth, (req, res) => {
-    const service = db.prepare("SELECT * FROM services WHERE id = ?").get(req.params.id);
+router.post("/:id/activate", requireAuth, async (req, res) => {
+    const service = await db.prepare("SELECT * FROM services WHERE id = ?").get(req.params.id);
     if (!service) return res.status(404).json({ error: "Tutoring offer not found" });
     if (service.provider_id !== req.userId) {
         return res.status(403).json({ error: "Only the tutor can resume this tutoring offer" });
     }
-    db.prepare("UPDATE services SET status = 'active' WHERE id = ?").run(service.id);
-    const row = db.prepare(`${SERVICE_SELECT} WHERE s.id = ?`).get(service.id);
+    await db.prepare("UPDATE services SET status = 'active' WHERE id = ?").run(service.id);
+    const row = await db.prepare(`${SERVICE_SELECT} WHERE s.id = ?`).get(service.id);
     res.json(serializeService(row));
 });
 

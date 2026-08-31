@@ -38,13 +38,13 @@ function publicUser(user) {
   };
 }
 
-router.get("/me", requireAuth, (req, res) => {
-  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
+router.get("/me", requireAuth, async (req, res) => {
+  const user = await db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
   if (!user) return res.status(404).json({ error: "User not found" });
   res.json({ user: publicUser(user) });
 });
 
-router.patch("/profile", requireAuth, (req, res) => {
+router.patch("/profile", requireAuth, async (req, res) => {
   const { name, year, concentration, aboutMe, profileImage } = req.body || {};
   const cleanName = String(name || "").trim();
   const cleanYear = String(year || "").trim();
@@ -63,11 +63,11 @@ router.patch("/profile", requireAuth, (req, res) => {
     return res.status(413).json({ error: "File size is too large. The maximum profile picture size is 2 MB." });
   }
 
-  db.prepare(
+  await db.prepare(
     `UPDATE users SET name = ?, year = ?, concentration = ?, about_me = ?, profile_image = ? WHERE id = ?`
   ).run(cleanName, cleanYear, cleanConcentration, cleanAboutMe, profileImage || null, req.userId);
 
-  const user = db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
+  const user = await db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
   res.json({ user: publicUser(user) });
 });
 
@@ -90,39 +90,38 @@ router.post("/register", async (req, res) => {
     return res.status(400).json({ error: "Invalid email format" });
   }
 
-  const approvedDomain = db.prepare("SELECT domain FROM approved_domains WHERE domain = ?").get(domain);
+  const approvedDomain = await db.prepare("SELECT domain FROM approved_domains WHERE domain = ?").get(domain);
   if (!approvedDomain) {
     // Generic message to avoid user enumeration
     return res.status(400).json({ error: "Unable to register with these details" });
   }
 
   // Check if email already claimed by active user
-  const existingByEmail = db.prepare("SELECT id FROM users WHERE school_email = ? AND status = 'active'").get(normalizedEmail);
+  const existingByEmail = await db.prepare("SELECT id FROM users WHERE school_email = ? AND status = 'active'").get(normalizedEmail);
   if (existingByEmail) {
     return res.status(400).json({ error: "Unable to register with these details" });
   }
 
   // Check if phone already claimed by active user
-  const existingByPhone = db.prepare("SELECT id FROM users WHERE phone_number = ? AND status = 'active'").get(phoneNumber);
+  const existingByPhone = await db.prepare("SELECT id FROM users WHERE phone_number = ? AND status = 'active'").get(phoneNumber);
   if (existingByPhone) {
     return res.status(400).json({ error: "Unable to register with these details" });
   }
 
-  // Also check for pending users to avoid conflicts
-  const pendingByEmail = db.prepare("SELECT id FROM users WHERE school_email = ? AND status = 'pending'").get(normalizedEmail);
-  if (pendingByEmail) {
-    return res.status(400).json({ error: "Unable to register with these details" });
-  }
-
-  const pendingByPhone = db.prepare("SELECT id FROM users WHERE phone_number = ? AND status = 'pending'").get(phoneNumber);
-  if (pendingByPhone) {
-    return res.status(400).json({ error: "Unable to register with these details" });
+  // Replace abandoned pending registrations so a failed Back-button cleanup
+  // cannot block the user from starting over.
+  const pendingByEmail = await db.prepare("SELECT id FROM users WHERE school_email = ? AND status = 'pending'").get(normalizedEmail);
+  const pendingByPhone = await db.prepare("SELECT id FROM users WHERE phone_number = ? AND status = 'pending'").get(phoneNumber);
+  const pendingIds = [...new Set([pendingByEmail?.id, pendingByPhone?.id].filter(Boolean))];
+  for (const pendingId of pendingIds) {
+    await db.prepare("DELETE FROM verification_codes WHERE pending_user_id = ?").run(pendingId);
+    await db.prepare("DELETE FROM users WHERE id = ? AND status = 'pending'").run(pendingId);
   }
 
   try {
     // Create pending user
     const userId = crypto.randomUUID();
-    db.prepare(
+    await db.prepare(
       `INSERT INTO users (id, name, email, password_hash, school_email, phone_number, year, concentration, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(userId, name, normalizedEmail, "", normalizedEmail, phoneNumber, year, concentration, "pending");
@@ -140,7 +139,7 @@ router.post("/register", async (req, res) => {
     const expiresAt = getExpiryTime();
     const codeId = crypto.randomUUID();
 
-    db.prepare(
+    await db.prepare(
       `INSERT INTO verification_codes (id, pending_user_id, destination, code_hash, expires_at, attempts)
        VALUES (?, ?, ?, ?, ?, ?)`
     ).run(codeId, userId, normalizedEmail, codeHash, expiresAt, 0);
@@ -167,7 +166,7 @@ router.post("/login", async (req, res) => {
     return res.status(400).json({ error: "email and a verification code are required" });
   }
 
-  const user = db.prepare(
+  const user = await db.prepare(
     "SELECT * FROM users WHERE email = ? OR school_email = ?"
   ).get(normalizedEmail, normalizedEmail);
 
@@ -185,7 +184,7 @@ router.post("/login", async (req, res) => {
     return res.json({ token, user: publicUser(user) });
   }
 
-  const verificationRecord = db.prepare(
+  const verificationRecord = await db.prepare(
     `SELECT * FROM verification_codes
      WHERE pending_user_id = ? AND destination = ? AND consumed_at IS NULL
      ORDER BY created_at DESC LIMIT 1`
@@ -200,11 +199,11 @@ router.post("/login", async (req, res) => {
   }
 
   if (!verifyCode(String(code), verificationRecord.code_hash)) {
-    db.prepare("UPDATE verification_codes SET attempts = attempts + 1 WHERE id = ?").run(verificationRecord.id);
+    await db.prepare("UPDATE verification_codes SET attempts = attempts + 1 WHERE id = ?").run(verificationRecord.id);
     return res.status(401).json({ error: "Invalid email or verification code" });
   }
 
-  db.prepare("UPDATE verification_codes SET consumed_at = datetime('now') WHERE id = ?").run(verificationRecord.id);
+  await db.prepare("UPDATE verification_codes SET consumed_at = datetime('now') WHERE id = ?").run(verificationRecord.id);
   const token = signToken(user);
   return res.json({ token, user: publicUser(user) });
 });
@@ -217,7 +216,7 @@ router.post("/request-login-code", async (req, res) => {
     return res.status(400).json({ error: "email is required" });
   }
 
-  const user = db.prepare(
+  const user = await db.prepare(
     "SELECT * FROM users WHERE email = ? OR school_email = ?"
   ).get(normalizedEmail, normalizedEmail);
 
@@ -249,7 +248,7 @@ router.post("/request-login-code", async (req, res) => {
   const expiresAt = getExpiryTime();
   const codeId = crypto.randomUUID();
 
-  db.prepare(
+  await db.prepare(
     `INSERT INTO verification_codes (id, pending_user_id, destination, code_hash, expires_at, attempts)
      VALUES (?, ?, ?, ?, ?, ?)`
   ).run(codeId, user.id, normalizedEmail, codeHash, expiresAt, 0);
@@ -271,13 +270,13 @@ router.post("/verify-email", async (req, res) => {
 
   try {
     // Look up pending user
-    const user = db.prepare("SELECT * FROM users WHERE id = ? AND status = 'pending'").get(pendingUserId);
+    const user = await db.prepare("SELECT * FROM users WHERE id = ? AND status = 'pending'").get(pendingUserId);
     if (!user) {
       return res.status(404).json({ error: "User not found or already verified" });
     }
 
     // Look up latest non-consumed, non-expired code
-    const verificationRecord = db.prepare(
+    const verificationRecord = await db.prepare(
       `SELECT * FROM verification_codes 
        WHERE pending_user_id = ? AND consumed_at IS NULL
        ORDER BY created_at DESC LIMIT 1`
@@ -300,16 +299,16 @@ router.post("/verify-email", async (req, res) => {
     // Verify code
     if (!verifyCode(code, verificationRecord.code_hash)) {
       // Increment attempts on failure
-      db.prepare("UPDATE verification_codes SET attempts = attempts + 1 WHERE id = ?").run(verificationRecord.id);
+      await db.prepare("UPDATE verification_codes SET attempts = attempts + 1 WHERE id = ?").run(verificationRecord.id);
       return res.status(400).json({ error: "Invalid verification code. Try again." });
     }
 
     // Success: mark code as consumed and activate user
-    db.prepare("UPDATE verification_codes SET consumed_at = datetime('now') WHERE id = ?").run(verificationRecord.id);
-    db.prepare("UPDATE users SET email_verified_at = datetime('now'), status = 'active' WHERE id = ?").run(pendingUserId);
+    await db.prepare("UPDATE verification_codes SET consumed_at = datetime('now') WHERE id = ?").run(verificationRecord.id);
+    await db.prepare("UPDATE users SET email_verified_at = datetime('now'), status = 'active' WHERE id = ?").run(pendingUserId);
 
     // Fetch updated user and issue token
-    const activatedUser = db.prepare("SELECT * FROM users WHERE id = ?").get(pendingUserId);
+    const activatedUser = await db.prepare("SELECT * FROM users WHERE id = ?").get(pendingUserId);
     const token = signToken(activatedUser);
 
     res.json({
@@ -332,7 +331,7 @@ router.post("/resend-code", async (req, res) => {
 
   try {
     // Look up pending user
-    const user = db.prepare("SELECT * FROM users WHERE id = ? AND status = 'pending'").get(pendingUserId);
+    const user = await db.prepare("SELECT * FROM users WHERE id = ? AND status = 'pending'").get(pendingUserId);
     if (!user) {
       return res.status(404).json({ error: "User not found or already verified" });
     }
@@ -363,7 +362,7 @@ router.post("/resend-code", async (req, res) => {
     const codeId = crypto.randomUUID();
 
     // Insert new code (old code naturally expires)
-    db.prepare(
+    await db.prepare(
       `INSERT INTO verification_codes (id, pending_user_id, destination, code_hash, expires_at, attempts)
        VALUES (?, ?, ?, ?, ?, ?)`
     ).run(codeId, pendingUserId, email, codeHash, expiresAt, 0);
@@ -390,16 +389,16 @@ router.post("/cancel-registration", async (req, res) => {
 
   try {
     // Verify the user exists and is pending
-    const user = db.prepare("SELECT * FROM users WHERE id = ? AND status = 'pending'").get(pendingUserId);
+    const user = await db.prepare("SELECT * FROM users WHERE id = ? AND status = 'pending'").get(pendingUserId);
     if (!user) {
-      return res.status(404).json({ error: "Pending user not found" });
+      return res.json({ message: "Registration already cancelled" });
     }
 
     // Delete verification codes first (foreign key constraint)
-    db.prepare("DELETE FROM verification_codes WHERE pending_user_id = ?").run(pendingUserId);
+    await db.prepare("DELETE FROM verification_codes WHERE pending_user_id = ?").run(pendingUserId);
 
     // Delete the pending user
-    db.prepare("DELETE FROM users WHERE id = ?").run(pendingUserId);
+    await db.prepare("DELETE FROM users WHERE id = ?").run(pendingUserId);
 
     res.json({ message: "Registration cancelled successfully" });
   } catch (err) {

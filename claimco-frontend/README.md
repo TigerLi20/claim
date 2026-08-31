@@ -8,7 +8,8 @@ sessions, and complete both one-off tasks and recurring academic support.
 
 ## Setup
 
-This expects the backend to already be running on `http://localhost:3001`
+This expects the backend to already be running on `http://localhost:3001` by
+default.
 (see `claimco-backend/README.md`). Put this folder **next to** that one, not
 inside it:
 
@@ -29,8 +30,8 @@ npm run dev
 It'll print a local URL, usually `http://localhost:5173` — open that in your
 browser.
 
-If your backend ever runs on a different port or host, change `API_BASE` at
-the top of `src/api/client.js`.
+If your backend runs on a different port or host, set `VITE_API_BASE` before
+starting Vite, for example `VITE_API_BASE=http://localhost:3011 npm run dev`.
 
 ## Pages
 

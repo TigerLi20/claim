@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-
-const API_BASE = import.meta.env.VITE_API_BASE || '';
+import { API_BASE } from '../api/client';
 
 export default function AdminInbox() {
     const [adminKey, setAdminKey] = useState(

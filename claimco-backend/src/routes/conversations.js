@@ -9,8 +9,8 @@ function participantWhere(userId) {
     return "c.user_a_id = ? OR c.user_b_id = ?";
 }
 
-router.get("/", requireAuth, (req, res) => {
-    const rows = db.prepare(`
+router.get("/", requireAuth, async (req, res) => {
+    const rows = await db.prepare(`
         SELECT c.id, c.user_a_id, c.user_b_id, c.created_at,
             CASE WHEN c.user_a_id = ? THEN c.user_b_id ELSE c.user_a_id END AS other_id,
             u.name AS other_name, u.year AS other_year, u.concentration AS other_concentration,
@@ -38,21 +38,21 @@ router.get("/", requireAuth, (req, res) => {
     })));
 });
 
-router.get("/:id/messages", requireAuth, (req, res) => {
-    if (!canAccessConversation(req.params.id, req.userId)) return res.status(404).json({ error: "Conversation not found" });
-    const conversation = db.prepare("SELECT user_a_id, user_b_id FROM conversations WHERE id = ?").get(req.params.id);
+router.get("/:id/messages", requireAuth, async (req, res) => {
+    if (!await canAccessConversation(req.params.id, req.userId)) return res.status(404).json({ error: "Conversation not found" });
+    const conversation = await db.prepare("SELECT user_a_id, user_b_id FROM conversations WHERE id = ?").get(req.params.id);
     const otherUserId = conversation.user_a_id === req.userId ? conversation.user_b_id : conversation.user_a_id;
-    const otherUser = db.prepare("SELECT id, name, year, concentration, profile_image FROM users WHERE id = ?").get(otherUserId);
-    const messages = db.prepare("SELECT id, conversation_id, sender_id, body, read_at, created_at FROM messages WHERE conversation_id = ? ORDER BY created_at ASC, id ASC").all(req.params.id);
+    const otherUser = await db.prepare("SELECT id, name, year, concentration, profile_image FROM users WHERE id = ?").get(otherUserId);
+    const messages = await db.prepare("SELECT id, conversation_id, sender_id, body, read_at, created_at FROM messages WHERE conversation_id = ? ORDER BY created_at ASC, id ASC").all(req.params.id);
     res.json({
         otherUser: { id: otherUser.id, name: otherUser.name, year: otherUser.year || "", concentration: otherUser.concentration || "", profileImage: otherUser.profile_image || null },
         messages: messages.map((message) => ({ id: message.id, conversationId: message.conversation_id, senderId: message.sender_id, body: message.body, createdAt: message.created_at })),
     });
 });
 
-router.post("/:id/read", requireAuth, (req, res) => {
-    if (!canAccessConversation(req.params.id, req.userId)) return res.status(404).json({ error: "Conversation not found" });
-    db.prepare("UPDATE messages SET read_at = datetime('now') WHERE conversation_id = ? AND sender_id != ? AND read_at IS NULL").run(req.params.id, req.userId);
+router.post("/:id/read", requireAuth, async (req, res) => {
+    if (!await canAccessConversation(req.params.id, req.userId)) return res.status(404).json({ error: "Conversation not found" });
+    await db.prepare("UPDATE messages SET read_at = datetime('now') WHERE conversation_id = ? AND sender_id != ? AND read_at IS NULL").run(req.params.id, req.userId);
     res.json({ ok: true });
 });
 

@@ -15,15 +15,15 @@ module.exports = function registerChatSocket(io) {
     });
 
     io.on("connection", (socket) => {
-        socket.on("join_conversation", (conversationId) => {
-            if (canAccessConversation(conversationId, socket.userId)) socket.join(`conversation:${conversationId}`);
+        socket.on("join_conversation", async (conversationId) => {
+            if (await canAccessConversation(conversationId, socket.userId)) socket.join(`conversation:${conversationId}`);
         });
 
-        socket.on("send_message", ({ conversationId, body } = {}, acknowledge) => {
+        socket.on("send_message", async ({ conversationId, body } = {}, acknowledge) => {
             const text = typeof body === "string" ? body.trim() : "";
             if (!text || text.length > 1000) return acknowledge?.({ error: "Message must be between 1 and 1000 characters" });
-            if (!canAccessConversation(conversationId, socket.userId)) return acknowledge?.({ error: "Conversation not found" });
-            const result = db.prepare("INSERT INTO messages (conversation_id, sender_id, body) VALUES (?, ?, ?)").run(conversationId, socket.userId, text);
+            if (!await canAccessConversation(conversationId, socket.userId)) return acknowledge?.({ error: "Conversation not found" });
+            const result = await db.prepare("INSERT INTO messages (conversation_id, sender_id, body) VALUES (?, ?, ?)").run(conversationId, socket.userId, text);
             const message = {
                 id: result.lastInsertRowid,
                 conversationId,

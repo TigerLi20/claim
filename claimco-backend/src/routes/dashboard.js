@@ -31,23 +31,27 @@ function getDashboardStatsForUser(userId, database = db) {
     )
     .get(userId);
 
-  return {
+  const serialize = (resolvedTotals, resolvedTutoring) => ({
     cutRate: CUT_RATE,
-    postedCount: Number(totals.posted_count || 0),
-    earned: Number((totals.earned_cents || 0) / 100),
-    openCount: Number(totals.open_count || 0),
-    claimedCount: Number(totals.claimed_count || 0),
-    doneCount: Number(totals.done_count || 0),
-    fulfilledCount: Number(totals.done_count || 0),
-    tutoringOfferedCount: Number(tutoring.offered_count || 0),
-    tutoringFulfilledCount: Number(tutoring.fulfilled_count || 0),
-    tutoringEarned: Number((tutoring.earned_cents || 0) / 100),
-  };
+    postedCount: Number(resolvedTotals.posted_count || 0),
+    earned: Number((resolvedTotals.earned_cents || 0) / 100),
+    openCount: Number(resolvedTotals.open_count || 0),
+    claimedCount: Number(resolvedTotals.claimed_count || 0),
+    doneCount: Number(resolvedTotals.done_count || 0),
+    fulfilledCount: Number(resolvedTotals.done_count || 0),
+    tutoringOfferedCount: Number(resolvedTutoring.offered_count || 0),
+    tutoringFulfilledCount: Number(resolvedTutoring.fulfilled_count || 0),
+    tutoringEarned: Number((resolvedTutoring.earned_cents || 0) / 100),
+  });
+  if (totals && typeof totals.then === "function") {
+    return Promise.all([totals, tutoring]).then(([resolvedTotals, resolvedTutoring]) => serialize(resolvedTotals, resolvedTutoring));
+  }
+  return serialize(totals, tutoring);
 }
 
 // GET /dashboard/stats — per-account snapshot for the authenticated user.
-router.get("/stats", requireAuth, (req, res) => {
-  res.json(getDashboardStatsForUser(req.userId));
+router.get("/stats", requireAuth, async (req, res) => {
+  res.json(await getDashboardStatsForUser(req.userId));
 });
 
 module.exports = router;

@@ -5,16 +5,16 @@ const { requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
 
-function getTaskTarget(id, reviewerId) {
-    const task = db.prepare("SELECT id, title, status, requester_id, worker_id FROM tasks WHERE id = ?").get(id);
+async function getTaskTarget(id, reviewerId) {
+    const task = await db.prepare("SELECT id, title, status, requester_id, worker_id FROM tasks WHERE id = ?").get(id);
     if (!task || task.status !== "done" || !task.worker_id) return null;
     if (![task.requester_id, task.worker_id].includes(reviewerId)) return null;
     const revieweeId = task.requester_id === reviewerId ? task.worker_id : task.requester_id;
     return { kind: "task", taskId: task.id, title: task.title, revieweeId };
 }
 
-function getServiceTarget(id, reviewerId) {
-    const purchase = db.prepare(`
+async function getServiceTarget(id, reviewerId) {
+    const purchase = await db.prepare(`
         SELECT p.id, p.buyer_id, p.provider_completed, p.buyer_completed, p.confirmation_status,
             s.title, s.provider_id
         FROM service_purchases p
@@ -27,12 +27,12 @@ function getServiceTarget(id, reviewerId) {
     return { kind: "service", purchaseId: purchase.id, title: purchase.title, revieweeId };
 }
 
-function getTarget(kind, id, reviewerId) {
+async function getTarget(kind, id, reviewerId) {
     return kind === "task" ? getTaskTarget(id, reviewerId) : getServiceTarget(id, reviewerId);
 }
 
-function serializeTarget(target, reviewerId) {
-    const existing = db.prepare(`
+async function serializeTarget(target, reviewerId) {
+    const existing = await db.prepare(`
         SELECT r.id, r.rating, r.body, r.anonymous, r.created_at, u.id AS reviewee_id, u.name AS reviewee_name,
             u.year AS reviewee_year, u.concentration AS reviewee_concentration, u.profile_image AS reviewee_profile_image
         FROM reviews r JOIN users u ON u.id = r.reviewee_id
@@ -42,7 +42,7 @@ function serializeTarget(target, reviewerId) {
         ...target,
         reviewee: {
             id: target.revieweeId,
-            name: existing?.reviewee_name || db.prepare("SELECT name FROM users WHERE id = ?").get(target.revieweeId).name,
+            name: existing?.reviewee_name || (await db.prepare("SELECT name FROM users WHERE id = ?").get(target.revieweeId)).name,
             year: existing?.reviewee_year || "",
             concentration: existing?.reviewee_concentration || "",
             profileImage: existing?.reviewee_profile_image || null,
@@ -51,16 +51,16 @@ function serializeTarget(target, reviewerId) {
     };
 }
 
-router.get("/:kind/:id", requireAuth, (req, res) => {
+router.get("/:kind/:id", requireAuth, async (req, res) => {
     if (!["task", "service"].includes(req.params.kind)) return res.status(404).json({ error: "Review target not found" });
-    const target = getTarget(req.params.kind, req.params.id, req.userId);
+    const target = await getTarget(req.params.kind, req.params.id, req.userId);
     if (!target) return res.status(403).json({ error: "Reviews are available only to participants after full fulfillment" });
-    res.json(serializeTarget(target, req.userId));
+    res.json(await serializeTarget(target, req.userId));
 });
 
-router.post("/:kind/:id", requireAuth, (req, res) => {
+router.post("/:kind/:id", requireAuth, async (req, res) => {
     if (!["task", "service"].includes(req.params.kind)) return res.status(404).json({ error: "Review target not found" });
-    const target = getTarget(req.params.kind, req.params.id, req.userId);
+    const target = await getTarget(req.params.kind, req.params.id, req.userId);
     if (!target) return res.status(403).json({ error: "Reviews are available only to participants after full fulfillment" });
 
     const rating = Number(req.body?.rating);
@@ -69,11 +69,11 @@ router.post("/:kind/:id", requireAuth, (req, res) => {
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) return res.status(400).json({ error: "rating must be a whole number from 1 to 5" });
     if (body.length > 1000) return res.status(400).json({ error: "Review must be 1000 characters or fewer" });
 
-    const existing = db.prepare(`SELECT id FROM reviews WHERE reviewer_id = ? AND ${target.kind === "task" ? "task_id = ?" : "purchase_id = ?"}`).get(req.userId, target.kind === "task" ? target.taskId : target.purchaseId);
+    const existing = await db.prepare(`SELECT id FROM reviews WHERE reviewer_id = ? AND ${target.kind === "task" ? "task_id = ?" : "purchase_id = ?"}`).get(req.userId, target.kind === "task" ? target.taskId : target.purchaseId);
     if (existing) return res.status(409).json({ error: "You already reviewed this completed relationship" });
 
     const id = crypto.randomUUID();
-    db.prepare(`
+    await db.prepare(`
         INSERT INTO reviews (id, task_id, purchase_id, reviewer_id, reviewee_id, rating, body, anonymous)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(id, target.kind === "task" ? target.taskId : null, target.kind === "service" ? target.purchaseId : null, req.userId, target.revieweeId, rating, body, anonymous);

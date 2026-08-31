@@ -12,8 +12,8 @@ const MAX_IMAGE_LENGTH = 2000000;
 const MAX_TITLE_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 1000;
 
-function expireUnclaimableTasks() {
-  return db.prepare(`
+async function expireUnclaimableTasks() {
+  return (await db.prepare(`
     UPDATE tasks
     SET status = 'cancelled', cancelled_at = datetime('now')
     WHERE status = 'open'
@@ -24,7 +24,7 @@ function expireUnclaimableTasks() {
         WHERE task_applications.task_id = tasks.id
           AND task_applications.status = 'pending'
       )
-  `).run().changes;
+  `).run()).changes;
 }
 
 function parseImages(value) {
@@ -35,8 +35,8 @@ function parseImages(value) {
   return JSON.stringify(value);
 }
 
-function hasPassedScheduledAt(value) {
-  return value && db.prepare("SELECT CASE WHEN instr(?, 'T') = 0 THEN date(?) < date('now', 'localtime') ELSE datetime(replace(?, 'T', ' ')) <= datetime('now', 'localtime', '+10 minutes') END AS passed").get(value, value, value).passed;
+async function hasPassedScheduledAt(value) {
+  return value && (await db.prepare("SELECT CASE WHEN instr(?, 'T') = 0 THEN date(?) < date('now', 'localtime') ELSE datetime(replace(?, 'T', ' ')) <= datetime('now', 'localtime', '+10 minutes') END AS passed").get(value, value, value)).passed;
 }
 
 function normalizeScheduledAt(scheduledDate, scheduledTime, legacyScheduledAt) {
@@ -44,7 +44,7 @@ function normalizeScheduledAt(scheduledDate, scheduledTime, legacyScheduledAt) {
   return legacyScheduledAt || "";
 }
 
-function getUser(id) {
+async function getUser(id) {
   return db.prepare("SELECT * FROM users WHERE id = ?").get(id);
 }
 
@@ -111,8 +111,8 @@ const TASK_SELECT = `
 `;
 
 // GET /tasks — the public board. Only open future tickets are browseable.
-router.get("/", requireAuth, (req, res) => {
-  const rows = db.prepare(`${TASK_SELECT.replace("SELECT t.*,", "SELECT t.*, current_application.id AS current_application_id,")}
+router.get("/", requireAuth, async (req, res) => {
+  const rows = await db.prepare(`${TASK_SELECT.replace("SELECT t.*,", "SELECT t.*, current_application.id AS current_application_id,")}
     LEFT JOIN task_applications current_application
       ON current_application.task_id = t.id
       AND current_application.worker_id = ?
@@ -130,8 +130,8 @@ router.get("/", requireAuth, (req, res) => {
   res.json(rows.map(serializeTask));
 });
 
-router.get("/stats", requireAuth, (req, res) => {
-  const stats = db.prepare(`
+router.get("/stats", requireAuth, async (req, res) => {
+  const stats = await db.prepare(`
     SELECT
       COUNT(*) FILTER (WHERE status = 'open' AND (scheduled_at IS NULL OR datetime(replace(scheduled_at, 'T', ' ') || CASE WHEN instr(scheduled_at, 'T') = 0 THEN ' 23:59:59' ELSE '' END) > datetime('now', 'localtime'))) AS open_count,
       COUNT(*) FILTER (WHERE status = 'claimed') AS claimed_count,
@@ -142,15 +142,15 @@ router.get("/stats", requireAuth, (req, res) => {
 });
 
 // GET /tasks/mine — everything the signed-in user posted or claimed.
-router.get("/mine", requireAuth, (req, res) => {
-  const rows = db
+router.get("/mine", requireAuth, async (req, res) => {
+  const rows = await db
     .prepare(`${TASK_SELECT} WHERE t.requester_id = ? OR t.worker_id = ? ORDER BY t.created_at DESC`)
     .all(req.userId, req.userId);
   res.json(rows.map(serializeTask));
 });
 
-router.get("/:id", requireAuth, (req, res) => {
-  const row = db.prepare(`${TASK_SELECT} WHERE t.id = ?`).get(req.params.id);
+router.get("/:id", requireAuth, async (req, res) => {
+  const row = await db.prepare(`${TASK_SELECT} WHERE t.id = ?`).get(req.params.id);
   if (!row) return res.status(404).json({ error: "Task not found" });
   if (!canViewTask(row, req.userId)) {
     return res.status(403).json({ error: "You do not have access to this ticket" });
@@ -186,7 +186,7 @@ router.post("/", requireAuth, async (req, res) => {
   if (String(notes || "").length > MAX_DESCRIPTION_LENGTH) {
     return res.status(400).json({ error: `Details must be ${MAX_DESCRIPTION_LENGTH} characters or fewer` });
   }
-  if (hasPassedScheduledAt(scheduledAt)) {
+  if (await hasPassedScheduledAt(scheduledAt)) {
     return res.status(400).json({ error: "Task date and time must be at least 10 minutes in the future" });
   }
   const priceCents = Math.round(Number(price) * 100);
@@ -196,7 +196,7 @@ router.post("/", requireAuth, async (req, res) => {
   let imagesJson;
   try { imagesJson = parseImages(images) || "[]"; } catch (err) { return res.status(400).json({ error: err.message }); }
 
-  const requester = getUser(req.userId);
+  const requester = await getUser(req.userId);
   const hold = await stripeLib.authorizeHold({
     amountCents: priceCents,
     paymentMethodId: req.body.paymentMethodId,
@@ -204,19 +204,19 @@ router.post("/", requireAuth, async (req, res) => {
   });
 
   const id = crypto.randomUUID();
-  db.prepare(
+  await db.prepare(
     `INSERT INTO tasks (
       id, category, title, description, scheduled_at, location, notes, images_json, price_cents, requester_id,
        requester_anonymous, payment_intent_id
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(id, category, title.trim(), (notes || "").trim(), scheduledAt || null, (location || "").trim(), (notes || "").trim(), imagesJson, priceCents, req.userId, anonymous ? 1 : 0, hold.paymentIntentId);
 
-  const row = db.prepare(`${TASK_SELECT} WHERE t.id = ?`).get(id);
+  const row = await db.prepare(`${TASK_SELECT} WHERE t.id = ?`).get(id);
   res.status(201).json({ task: serializeTask(row), paymentMock: hold.mock });
 });
 
-router.patch("/:id", requireAuth, (req, res) => {
-  const task = db.prepare("SELECT * FROM tasks WHERE id = ?").get(req.params.id);
+router.patch("/:id", requireAuth, async (req, res) => {
+  const task = await db.prepare("SELECT * FROM tasks WHERE id = ?").get(req.params.id);
   if (!task) return res.status(404).json({ error: "Task not found" });
   if (task.requester_id !== req.userId) {
     return res.status(403).json({ error: "Only the requester can edit this ticket" });
@@ -248,21 +248,21 @@ router.patch("/:id", requireAuth, (req, res) => {
   if (String(notes || "").length > MAX_DESCRIPTION_LENGTH) {
     return res.status(400).json({ error: `Details must be ${MAX_DESCRIPTION_LENGTH} characters or fewer` });
   }
-  if (hasPassedScheduledAt(scheduledAt)) {
+  if (await hasPassedScheduledAt(scheduledAt)) {
     return res.status(400).json({ error: "Task date and time must be at least 10 minutes in the future" });
   }
   let imagesJson;
   try { imagesJson = parseImages(images); } catch (err) { return res.status(400).json({ error: err.message }); }
   if (imagesJson === null) imagesJson = "[]";
-  db.prepare(
+  await db.prepare(
     "UPDATE tasks SET category = ?, title = ?, description = ?, scheduled_at = ?, location = ?, notes = ?, images_json = ? WHERE id = ?"
   ).run(category, title.trim(), (notes || "").trim(), scheduledAt || null, (location || "").trim(), (notes || "").trim(), imagesJson, task.id);
-  const row = db.prepare(`${TASK_SELECT} WHERE t.id = ?`).get(task.id);
+  const row = await db.prepare(`${TASK_SELECT} WHERE t.id = ?`).get(task.id);
   res.json(serializeTask(row));
 });
 
 router.post("/:id/reoffer", requireAuth, async (req, res) => {
-  const task = db.prepare("SELECT * FROM tasks WHERE id = ?").get(req.params.id);
+  const task = await db.prepare("SELECT * FROM tasks WHERE id = ?").get(req.params.id);
   if (!task) return res.status(404).json({ error: "Task not found" });
   if (task.requester_id !== req.userId) {
     return res.status(403).json({ error: "Only the requester can re-offer this ticket" });
@@ -294,7 +294,7 @@ router.post("/:id/reoffer", requireAuth, async (req, res) => {
   if (String(notes || "").length > MAX_DESCRIPTION_LENGTH) {
     return res.status(400).json({ error: `Details must be ${MAX_DESCRIPTION_LENGTH} characters or fewer` });
   }
-  if (hasPassedScheduledAt(scheduledAt)) {
+  if (await hasPassedScheduledAt(scheduledAt)) {
     return res.status(400).json({ error: "Task date and time must be at least 10 minutes in the future" });
   }
   const priceCents = Math.round(Number(price) * 100);
@@ -304,27 +304,27 @@ router.post("/:id/reoffer", requireAuth, async (req, res) => {
   let imagesJson;
   try { imagesJson = parseImages(images) || "[]"; } catch (err) { return res.status(400).json({ error: err.message }); }
 
-  const requester = getUser(req.userId);
+  const requester = await getUser(req.userId);
   const hold = await stripeLib.authorizeHold({
     amountCents: priceCents,
     paymentMethodId: req.body.paymentMethodId,
     customerEmail: requester.email,
   });
   const id = crypto.randomUUID();
-  db.prepare(
+  await db.prepare(
     `INSERT INTO tasks (
       id, category, title, description, scheduled_at, location, notes, images_json, price_cents, requester_id,
        requester_anonymous, payment_intent_id
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(id, category, title.trim(), (notes || "").trim(), scheduledAt || null, (location || "").trim(), (notes || "").trim(), imagesJson, priceCents, req.userId, task.requester_anonymous, hold.paymentIntentId);
 
-  const row = db.prepare(`${TASK_SELECT} WHERE t.id = ?`).get(id);
+  const row = await db.prepare(`${TASK_SELECT} WHERE t.id = ?`).get(id);
   res.status(201).json({ task: serializeTask(row), paymentMock: hold.mock });
 });
 
 // POST /tasks/:id/claim — a worker claims an open ticket.
-router.post("/:id/claim", requireAuth, (req, res) => {
-  const task = db.prepare("SELECT * FROM tasks WHERE id = ?").get(req.params.id);
+router.post("/:id/claim", requireAuth, async (req, res) => {
+  const task = await db.prepare("SELECT * FROM tasks WHERE id = ?").get(req.params.id);
   if (!task) return res.status(404).json({ error: "Task not found" });
   if (task.status !== "open") return res.status(409).json({ error: "Task is no longer open" });
   if (task.requester_id === req.userId) {
@@ -334,15 +334,15 @@ router.post("/:id/claim", requireAuth, (req, res) => {
   const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 50) : "";
 
   try {
-    const applicationId = db.transaction(() => {
-      const latestTask = db.prepare("SELECT status, requester_id FROM tasks WHERE id = ?").get(task.id);
+    const applicationId = await db.transaction(async (transactionDb) => {
+      const latestTask = await transactionDb.prepare("SELECT status, requester_id FROM tasks WHERE id = ?").get(task.id);
       if (!latestTask || latestTask.status !== "open") {
         const error = new Error("Task is no longer open");
         error.statusCode = 409;
         throw error;
       }
 
-      const existing = db.prepare("SELECT status FROM task_applications WHERE task_id = ? AND worker_id = ?").get(task.id, req.userId);
+      const existing = await transactionDb.prepare("SELECT status FROM task_applications WHERE task_id = ? AND worker_id = ?").get(task.id, req.userId);
       if (existing?.status === "pending") {
         const error = new Error("Your request is already pending");
         error.statusCode = 409;
@@ -355,12 +355,12 @@ router.post("/:id/claim", requireAuth, (req, res) => {
       }
 
       const id = crypto.randomUUID();
-      db.prepare("INSERT INTO task_applications (id, task_id, worker_id, anonymous, request_note) VALUES (?, ?, ?, ?, ?)")
+      await transactionDb.prepare("INSERT INTO task_applications (id, task_id, worker_id, anonymous, request_note) VALUES (?, ?, ?, ?, ?)")
         .run(id, task.id, req.userId, req.body?.anonymous ? 1 : 0, note);
-      db.prepare(`INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'task_application', ?, ?, ?)`)
+      await transactionDb.prepare(`INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'task_application', ?, ?, ?)`)
         .run(crypto.randomUUID(), latestTask.requester_id, task.id, req.userId, `Someone wants to claim your ticket.${note ? ` Note: ${note}` : ""}`);
       return id;
-    })();
+    });
 
     return res.status(202).json({ pending: true, applicationId });
   } catch (error) {
@@ -371,54 +371,54 @@ router.post("/:id/claim", requireAuth, (req, res) => {
   }
 });
 
-router.get("/:id/applications", requireAuth, (req, res) => {
-  const task = db.prepare("SELECT * FROM tasks WHERE id = ?").get(req.params.id);
+router.get("/:id/applications", requireAuth, async (req, res) => {
+  const task = await db.prepare("SELECT * FROM tasks WHERE id = ?").get(req.params.id);
   if (!task) return res.status(404).json({ error: "Task not found" });
   if (task.requester_id !== req.userId) return res.status(403).json({ error: "Only the requester can view applications" });
-  const rows = db.prepare(`SELECT a.*, u.name, u.year, u.concentration, u.profile_image FROM task_applications a JOIN users u ON u.id = a.worker_id WHERE a.task_id = ? ORDER BY a.created_at`).all(task.id);
+  const rows = await db.prepare(`SELECT a.*, u.name, u.year, u.concentration, u.profile_image FROM task_applications a JOIN users u ON u.id = a.worker_id WHERE a.task_id = ? ORDER BY a.created_at`).all(task.id);
   res.json(rows.map((row) => ({ id: row.id, worker: { id: row.worker_id, name: row.name, year: row.year || "", concentration: row.concentration || "", profileImage: row.profile_image || null }, anonymous: !!row.anonymous, status: row.status, requestNote: row.request_note || "", createdAt: row.created_at })));
 });
 
-router.post("/:id/applications/:applicationId/confirm", requireAuth, (req, res) => {
-  const task = db.prepare("SELECT * FROM tasks WHERE id = ?").get(req.params.id);
+router.post("/:id/applications/:applicationId/confirm", requireAuth, async (req, res) => {
+  const task = await db.prepare("SELECT * FROM tasks WHERE id = ?").get(req.params.id);
   if (!task) return res.status(404).json({ error: "Task not found" });
   if (task.requester_id !== req.userId) return res.status(403).json({ error: "Only the requester can confirm a worker" });
   if (task.status !== "open") return res.status(409).json({ error: "This ticket is no longer open" });
 
-  const application = db.prepare("SELECT * FROM task_applications WHERE id = ? AND task_id = ?").get(req.params.applicationId, task.id);
+  const application = await db.prepare("SELECT * FROM task_applications WHERE id = ? AND task_id = ?").get(req.params.applicationId, task.id);
   if (!application || application.status !== "pending") return res.status(409).json({ error: "Application is no longer pending" });
 
   try {
-    const conversationId = db.transaction(() => {
-      const latestTask = db.prepare("SELECT * FROM tasks WHERE id = ?").get(task.id);
+    const conversationId = await db.transaction(async (transactionDb) => {
+      const latestTask = await transactionDb.prepare("SELECT * FROM tasks WHERE id = ?").get(task.id);
       if (!latestTask || latestTask.status !== "open") {
         const error = new Error("This ticket is no longer open");
         error.statusCode = 409;
         throw error;
       }
 
-      const latestApplication = db.prepare("SELECT * FROM task_applications WHERE id = ? AND task_id = ?").get(req.params.applicationId, task.id);
+      const latestApplication = await transactionDb.prepare("SELECT * FROM task_applications WHERE id = ? AND task_id = ?").get(req.params.applicationId, task.id);
       if (!latestApplication || latestApplication.status !== "pending") {
         const error = new Error("Application is no longer pending");
         error.statusCode = 409;
         throw error;
       }
 
-      const declined = db.prepare("SELECT worker_id FROM task_applications WHERE task_id = ? AND id != ? AND status = 'pending'").all(task.id, latestApplication.id);
-      db.prepare("UPDATE tasks SET status = 'claimed', worker_id = ?, worker_anonymous = ?, claimed_at = datetime('now') WHERE id = ?")
+      const declined = await transactionDb.prepare("SELECT worker_id FROM task_applications WHERE task_id = ? AND id != ? AND status = 'pending'").all(task.id, latestApplication.id);
+      await transactionDb.prepare("UPDATE tasks SET status = 'claimed', worker_id = ?, worker_anonymous = ?, claimed_at = datetime('now') WHERE id = ?")
         .run(latestApplication.worker_id, latestApplication.anonymous, task.id);
-      db.prepare("UPDATE task_applications SET status = 'accepted' WHERE id = ?").run(latestApplication.id);
-      db.prepare("UPDATE task_applications SET status = 'declined' WHERE task_id = ? AND id != ? AND status = 'pending'").run(task.id, latestApplication.id);
-      const addDeclineNotification = db.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'task_declined', ?, ?, ?)");
+      await transactionDb.prepare("UPDATE task_applications SET status = 'accepted' WHERE id = ?").run(latestApplication.id);
+      await transactionDb.prepare("UPDATE task_applications SET status = 'declined' WHERE task_id = ? AND id != ? AND status = 'pending'").run(task.id, latestApplication.id);
+      const addDeclineNotification = transactionDb.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'task_declined', ?, ?, ?)");
       for (const applicant of declined) {
-        addDeclineNotification.run(crypto.randomUUID(), applicant.worker_id, task.id, req.userId, "Another applicant was selected for this ticket.");
+        await addDeclineNotification.run(crypto.randomUUID(), applicant.worker_id, task.id, req.userId, "Another applicant was selected for this ticket.");
       }
-      db.prepare("UPDATE notifications SET read_at = datetime('now') WHERE task_id = ? AND type = 'task_application'").run(task.id);
-      db.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'task_confirmed', ?, ?, ?)").run(crypto.randomUUID(), latestApplication.worker_id, task.id, req.userId, "Your request to claim a ticket was accepted.");
-      db.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'task_confirmation_sent', ?, ?, ?)").run(crypto.randomUUID(), req.userId, task.id, latestApplication.worker_id, "You accepted a request to claim this ticket.");
-      const conversationId = require("../lib/conversations").getConversationId(latestApplication.worker_id, latestTask.requester_id);
+      await transactionDb.prepare("UPDATE notifications SET read_at = datetime('now') WHERE task_id = ? AND type = 'task_application'").run(task.id);
+      await transactionDb.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'task_confirmed', ?, ?, ?)").run(crypto.randomUUID(), latestApplication.worker_id, task.id, req.userId, "Your request to claim a ticket was accepted.");
+      await transactionDb.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'task_confirmation_sent', ?, ?, ?)").run(crypto.randomUUID(), req.userId, task.id, latestApplication.worker_id, "You accepted a request to claim this ticket.");
+      const conversationId = await require("../lib/conversations").getConversationId(latestApplication.worker_id, latestTask.requester_id, transactionDb);
       return conversationId;
-    })();
+    });
 
     return res.json({ ok: true, conversationId });
   } catch (error) {
@@ -429,14 +429,14 @@ router.post("/:id/applications/:applicationId/confirm", requireAuth, (req, res) 
   }
 });
 
-router.post("/:id/applications/:applicationId/decline", requireAuth, (req, res) => {
-  const task = db.prepare("SELECT * FROM tasks WHERE id = ?").get(req.params.id);
+router.post("/:id/applications/:applicationId/decline", requireAuth, async (req, res) => {
+  const task = await db.prepare("SELECT * FROM tasks WHERE id = ?").get(req.params.id);
   if (!task) return res.status(404).json({ error: "Task not found" });
   if (task.requester_id !== req.userId) return res.status(403).json({ error: "Only the requester can decline a worker" });
-  const result = db.prepare("UPDATE task_applications SET status = 'declined' WHERE id = ? AND task_id = ? AND status = 'pending'").run(req.params.applicationId, task.id);
+  const result = await db.prepare("UPDATE task_applications SET status = 'declined' WHERE id = ? AND task_id = ? AND status = 'pending'").run(req.params.applicationId, task.id);
   if (!result.changes) return res.status(409).json({ error: "Application is no longer pending" });
-  const application = db.prepare("SELECT worker_id FROM task_applications WHERE id = ?").get(req.params.applicationId);
-  db.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'task_declined', ?, ?, ?)")
+  const application = await db.prepare("SELECT worker_id FROM task_applications WHERE id = ?").get(req.params.applicationId);
+  await db.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'task_declined', ?, ?, ?)")
     .run(crypto.randomUUID(), application.worker_id, task.id, req.userId, "Your request was not selected for this ticket.");
   res.json({ ok: true });
 });
@@ -444,7 +444,7 @@ router.post("/:id/applications/:applicationId/decline", requireAuth, (req, res) 
 // POST /tasks/:id/complete — either side confirms fulfillment. The ticket
 // becomes done only after both the requester and worker confirm.
 router.post("/:id/complete", requireAuth, async (req, res) => {
-  const task = db.prepare("SELECT * FROM tasks WHERE id = ?").get(req.params.id);
+  const task = await db.prepare("SELECT * FROM tasks WHERE id = ?").get(req.params.id);
   if (!task) return res.status(404).json({ error: "Task not found" });
   if (task.status !== "claimed") return res.status(409).json({ error: "Task isn't in a claimed state" });
   const isRequester = task.requester_id === req.userId;
@@ -456,7 +456,7 @@ router.post("/:id/complete", requireAuth, async (req, res) => {
   const requesterCompleted = task.requester_completed || isRequester ? 1 : 0;
   const workerCompleted = task.worker_completed || isWorker ? 1 : 0;
   if (requesterCompleted && workerCompleted) {
-    const worker = getUser(task.worker_id);
+    const worker = await getUser(task.worker_id);
     if (!stripeLib.MOCK && !worker.stripe_account_id) {
       return res.status(400).json({ error: "Finish Stripe Connect onboarding before completing paid tickets" });
     }
@@ -468,28 +468,28 @@ router.post("/:id/complete", requireAuth, async (req, res) => {
       workerPayoutCents,
     });
 
-    db.prepare(
+    await db.prepare(
       `UPDATE tasks SET status = 'done', requester_completed = 1, worker_completed = 1,
           completed_at = datetime('now'), platform_cut_cents = ?, worker_payout_cents = ?
        WHERE id = ?`
     ).run(platformCutCents, workerPayoutCents, task.id);
-    db.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'review_request', ?, ?, ?)")
+    await db.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'review_request', ?, ?, ?)")
       .run(crypto.randomUUID(), task.requester_id, task.id, task.worker_id, "Your ticket was fully fulfilled. Leave a review.");
-    db.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'review_request', ?, ?, ?)")
+    await db.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'review_request', ?, ?, ?)")
       .run(crypto.randomUUID(), task.worker_id, task.id, task.requester_id, "Your ticket was fully fulfilled. Leave a review.");
   } else {
-    db.prepare(
+    await db.prepare(
       "UPDATE tasks SET requester_completed = ?, worker_completed = ? WHERE id = ?"
     ).run(requesterCompleted, workerCompleted, task.id);
   }
 
-  const row = db.prepare(`${TASK_SELECT} WHERE t.id = ?`).get(task.id);
+  const row = await db.prepare(`${TASK_SELECT} WHERE t.id = ?`).get(task.id);
   res.json(serializeTask(row));
 });
 
 // POST /tasks/:id/cancel — the requester backs out before it's fulfilled.
 router.post("/:id/cancel", requireAuth, async (req, res) => {
-  const task = db.prepare("SELECT * FROM tasks WHERE id = ?").get(req.params.id);
+  const task = await db.prepare("SELECT * FROM tasks WHERE id = ?").get(req.params.id);
   if (!task) return res.status(404).json({ error: "Task not found" });
   if (task.requester_id !== req.userId) {
     return res.status(403).json({ error: "Only the requester can cancel this ticket" });
@@ -500,20 +500,20 @@ router.post("/:id/cancel", requireAuth, async (req, res) => {
 
   await stripeLib.cancelHold(task.payment_intent_id);
 
-  db.transaction(() => {
-    const pending = db.prepare("SELECT id, worker_id FROM task_applications WHERE task_id = ? AND status = 'pending'").all(task.id);
+  await db.transaction(async () => {
+    const pending = await db.prepare("SELECT id, worker_id FROM task_applications WHERE task_id = ? AND status = 'pending'").all(task.id);
     if (pending.length > 0) {
-      db.prepare("UPDATE task_applications SET status = 'declined' WHERE task_id = ? AND status = 'pending'").run(task.id);
-      db.prepare("UPDATE notifications SET read_at = datetime('now') WHERE task_id = ? AND type = 'task_application'").run(task.id);
+      await db.prepare("UPDATE task_applications SET status = 'declined' WHERE task_id = ? AND status = 'pending'").run(task.id);
+      await db.prepare("UPDATE notifications SET read_at = datetime('now') WHERE task_id = ? AND type = 'task_application'").run(task.id);
       const addDeclineNotification = db.prepare("INSERT INTO notifications (id, recipient_id, type, task_id, actor_id, message) VALUES (?, ?, 'task_declined', ?, ?, ?)");
       for (const application of pending) {
-        addDeclineNotification.run(crypto.randomUUID(), application.worker_id, task.id, req.userId, "Your request was not selected for this ticket.");
+        await addDeclineNotification.run(crypto.randomUUID(), application.worker_id, task.id, req.userId, "Your request was not selected for this ticket.");
       }
     }
-    db.prepare(`UPDATE tasks SET status = 'cancelled', cancelled_at = datetime('now') WHERE id = ?`).run(task.id);
-  })();
+    await db.prepare(`UPDATE tasks SET status = 'cancelled', cancelled_at = datetime('now') WHERE id = ?`).run(task.id);
+  });
 
-  const row = db.prepare(`${TASK_SELECT} WHERE t.id = ?`).get(task.id);
+  const row = await db.prepare(`${TASK_SELECT} WHERE t.id = ?`).get(task.id);
   res.json(serializeTask(row));
 });
 
