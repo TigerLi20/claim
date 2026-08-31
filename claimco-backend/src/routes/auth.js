@@ -8,7 +8,7 @@ const deliveryProvider = require("../lib/deliveryProvider.factory");
 const { generateCode, hashCode, getExpiryTime, extractEmailDomain, normalizeEmail, isExpired, verifyCode } = require("../lib/verificationCodes");
 const TEST_IDENTIFIERS = require("../lib/testIdentifiers");
 const rateLimiter = require("../lib/rateLimiter");
-const { isValidImageString, normalizeImageValue, uploadImageAsset } = require("../lib/cloudinary");
+const { isValidImageString, normalizeImageValue, cloudinaryConfigured, uploadImageAsset } = require("../lib/cloudinary");
 const { deleteImageAssets } = require("../lib/imageAssets");
 
 const router = express.Router();
@@ -97,6 +97,17 @@ router.patch("/profile", requireAuth, upload.single("profileImage"), async (req,
 
     if (isLegacyBase64 && finalProfileImage.length > MAX_PROFILE_IMAGE_DATA_LENGTH) {
       return res.status(413).json({ error: "File size is too large. The maximum profile picture size is 600 KB after compression." });
+    }
+
+    if (isLegacyBase64 && cloudinaryConfigured()) {
+      try {
+        const asset = await uploadImageAsset(finalProfileImage, { folder: "claimco/users" });
+        finalProfileImage = asset.url;
+        finalProfileImagePublicId = asset.publicId;
+      } catch (error) {
+        console.error("Profile image upload failed:", error);
+        return res.status(500).json({ error: "Profile image upload failed." });
+      }
     }
   }
 

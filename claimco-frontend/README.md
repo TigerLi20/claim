@@ -32,6 +32,8 @@ browser.
 
 If your backend runs on a different port or host, set `VITE_API_BASE` before
 starting Vite, for example `VITE_API_BASE=http://localhost:3011 npm run dev`.
+For same-origin development requests through Vite's proxy, use
+`VITE_API_PROXY_TARGET=http://localhost:3011 npm run dev` instead.
 
 ## Pages
 

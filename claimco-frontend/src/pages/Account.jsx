@@ -53,20 +53,21 @@ export default function Account() {
             return;
         }
 
-        const payload = new FormData();
-        payload.append("name", form.name || user?.name || "");
-        payload.append("year", form.year || user?.year || "");
-        payload.append("concentration", form.concentration || user?.concentration || "");
-        payload.append("aboutMe", form.aboutMe || user?.aboutMe || "");
-        payload.append("profileImage", file);
-
         event.target.value = "";
         setError("");
         setSaved(false);
         setBusy(true);
 
         try {
-            const userData = await updateProfile(payload);
+            const compressedImage = await compressImage(file);
+            const userData = await updateProfile({
+                ...form,
+                name: form.name || user?.name || "",
+                year: form.year || user?.year || "",
+                concentration: form.concentration || user?.concentration || "",
+                aboutMe: form.aboutMe || user?.aboutMe || "",
+                profileImage: compressedImage,
+            });
             setProfileImage(userData.profileImage || null);
             setSaved(true);
         } catch (err) {
