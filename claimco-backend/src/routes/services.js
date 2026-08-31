@@ -291,9 +291,9 @@ router.post("/:id/purchase", requireAuth, async (req, res) => {
     await db.prepare("INSERT INTO notifications (id, recipient_id, type, service_id, purchase_id, actor_id, message) VALUES (?, ?, 'service_purchase', ?, ?, ?, ?)")
         .run(crypto.randomUUID(), service.provider_id, service.id, id, req.userId, servicePurchaseMessage);
     await sendMaybe(service.provider_id, {
-      type: "service_purchase",
-      subject: "Someone wants to claim your tutoring offer",
-      text: `${servicePurchaseMessage}\n\nOpen Claim to review the request.`,
+        type: "service_purchase",
+        subject: "Someone wants to claim your tutoring offer",
+        text: `${servicePurchaseMessage}\n\nOpen Claim to review the request.`,
     });
     res.status(201).json({ id, serviceId: service.id, purchaseType: "one_time", price: service.price_cents / 100, status: "used", paymentMock: hold.mock });
 });
@@ -321,14 +321,14 @@ router.post("/instances/:id/complete", requireAuth, async (req, res) => {
         await db.prepare("INSERT INTO notifications (id, recipient_id, type, service_id, purchase_id, actor_id, message) VALUES (?, ?, 'review_request', ?, ?, ?, ?)")
             .run(crypto.randomUUID(), purchase.provider_id, purchase.service_id, purchase.id, purchase.buyer_id, reviewRequestMessage);
         await sendMaybe(purchase.buyer_id, {
-          type: "review_request",
-          subject: "Leave a review for your tutoring session",
-          text: `${reviewRequestMessage}\n\nOpen Claim to leave feedback.`,
+            type: "review_request",
+            subject: "Leave a review for your tutoring session",
+            text: `${reviewRequestMessage}\n\nOpen Claim to leave feedback.`,
         });
         await sendMaybe(purchase.provider_id, {
-          type: "review_request",
-          subject: "Leave a review for your tutoring session",
-          text: `${reviewRequestMessage}\n\nOpen Claim to leave feedback.`,
+            type: "review_request",
+            subject: "Leave a review for your tutoring session",
+            text: `${reviewRequestMessage}\n\nOpen Claim to leave feedback.`,
         });
     }
     res.json({ ok: true, fulfilled: !!(providerCompleted && buyerCompleted) });
@@ -357,14 +357,14 @@ router.post("/:id/customers/:purchaseId/confirm", requireAuth, async (req, res) 
     await db.prepare("INSERT INTO notifications (id, recipient_id, type, service_id, purchase_id, actor_id, message) VALUES (?, ?, 'service_confirmed', ?, ?, ?, ?)").run(crypto.randomUUID(), purchase.buyer_id, service.id, req.params.purchaseId, req.userId, buyerConfirmedMessage);
     await db.prepare("INSERT INTO notifications (id, recipient_id, type, service_id, purchase_id, actor_id, message) VALUES (?, ?, 'service_confirmation_sent', ?, ?, ?, ?)").run(crypto.randomUUID(), req.userId, service.id, req.params.purchaseId, purchase.buyer_id, providerConfirmationMessage);
     await sendMaybe(purchase.buyer_id, {
-      type: "service_confirmed",
-      subject: "Your tutoring claim was accepted",
-      text: `${buyerConfirmedMessage}\n\nOpen Claim to continue.`,
+        type: "service_confirmed",
+        subject: "Your tutoring claim was accepted",
+        text: `${buyerConfirmedMessage}\n\nOpen Claim to continue.`,
     });
     await sendMaybe(req.userId, {
-      type: "service_confirmation_sent",
-      subject: "You accepted a tutoring request",
-      text: `${providerConfirmationMessage}\n\nOpen Claim to continue.`,
+        type: "service_confirmation_sent",
+        subject: "You accepted a tutoring request",
+        text: `${providerConfirmationMessage}\n\nOpen Claim to continue.`,
     });
     res.json({ ok: true, conversationId });
 });
@@ -380,9 +380,9 @@ router.post("/:id/customers/:purchaseId/decline", requireAuth, async (req, res) 
     const declinedMessage = "Your tutoring claim was declined.";
     await db.prepare("INSERT INTO notifications (id, recipient_id, type, service_id, purchase_id, actor_id, message) VALUES (?, ?, 'service_declined', ?, ?, ?, ?)").run(crypto.randomUUID(), purchase.buyer_id, service.id, req.params.purchaseId, req.userId, declinedMessage);
     await sendMaybe(purchase.buyer_id, {
-      type: "service_declined",
-      subject: "Your tutoring claim was declined",
-      text: `${declinedMessage}\n\nOpen Claim to explore other options.`,
+        type: "service_declined",
+        subject: "Your tutoring claim was declined",
+        text: `${declinedMessage}\n\nOpen Claim to explore other options.`,
     });
     res.json({ ok: true });
 });
