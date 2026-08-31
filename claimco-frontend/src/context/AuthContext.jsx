@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { api } from "../api/client";
+import { API_BASE, api } from "../api/client";
 import { socket } from "../chat/socket";
 
 const AuthContext = createContext(null);
@@ -47,7 +47,7 @@ export function AuthProvider({ children }) {
   async function clearPending() {
     const pendingId = sessionStorage.getItem("claimco_pending_user_id");
     if (pendingId) {
-      const baseUrl = api.API_BASE || "";
+      const baseUrl = API_BASE;
       try {
         // Delete the pending user from backend with keepalive so request completes even if page unloads
         await fetch(`${baseUrl}/auth/cancel-registration`, {
