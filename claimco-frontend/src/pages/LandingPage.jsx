@@ -211,7 +211,7 @@ export default function LandingPage() {
                                 <div className="landing-persona">
                                     <div className="landing-avatar">MT</div>
                                     <div>
-                                        <div className="landing-name">Tiger L.</div>
+                                        <div className="landing-name">Tyler L.</div>
                                         <div className="landing-meta">Computer Science</div>
                                     </div>
                                 </div>
