@@ -2592,8 +2592,8 @@ html.dark-mode .chat-message.chat-message-other {
   margin: 0;
   overflow: hidden;
   border-radius: 0 4px 4px 0;
-  opacity: .8;
-  filter: saturate(.72);
+  opacity: 1;
+  filter: saturate(1);
   border-left: 1px solid var(--line);
 }
 
