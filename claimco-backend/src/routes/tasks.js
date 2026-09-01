@@ -8,7 +8,7 @@ const { sendMaybe } = require("../lib/notificationEmail");
 const { prepareImageAssets, deleteImageAssets } = require("../lib/imageAssets");
 
 const router = express.Router();
-const VALID_CATEGORIES = new Set(["moveout", "errand", "event"]);
+const VALID_CATEGORIES = new Set(["moveout", "errand", "event", "other"]);
 const MAX_TITLE_LENGTH = 120;
 const MAX_DESCRIPTION_LENGTH = 1000;
 

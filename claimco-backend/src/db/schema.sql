@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- Lifecycle: open -> claimed -> done, or open/claimed -> cancelled.
 CREATE TABLE IF NOT EXISTS tasks (
   id                  TEXT PRIMARY KEY,
-  category            TEXT NOT NULL CHECK (category IN ('moveout', 'errand', 'event')),
+  category            TEXT NOT NULL CHECK (category IN ('moveout', 'errand', 'event', 'other')),
   title               TEXT NOT NULL,
   description         TEXT NOT NULL DEFAULT '',
   scheduled_at        TEXT,
