@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Claim logo icon">
+  <rect width="64" height="64" fill="none"/>
+  <g transform="translate(4,4)">
+    <g transform="rotate(45 28 28)">
+      <!-- Brown background circle -->
+      <circle cx="28" cy="28" r="24" fill="#2a2318"/>
+      <!-- White semicircle (left) -->
+      <path d="M 28 4 A 24 24 0 0 0 28 52 Z" fill="white"/>
+      <!-- Green semicircle (right) -->
+      <path d="M 28 4 A 24 24 0 0 1 28 52 Z" fill="#3f5c4e"/>
+    </g>
+    <circle cx="28" cy="28" r="24" fill="none" stroke="#2a2318" stroke-width="9"/>
+  </g>
+</svg>
