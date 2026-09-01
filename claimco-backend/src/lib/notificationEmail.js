@@ -60,7 +60,7 @@ async function sendDirectMessageEmail({ recipientId, senderId, messageText, conv
       <h2>New message from ${senderName}</h2>
       <p>${senderName} sent you a message:</p>
       <blockquote>${preview}${preview.length >= 180 ? "..." : ""}</blockquote>
-      <p><a href="${process.env.APP_URL || "http://localhost:5173"}/messages/${conversationId}">Open the conversation</a></p>
+      <p><a href="${process.env.APP_URL || "https://claimforcampus.com"}/messages/${conversationId}">Open the conversation</a></p>
     `,
         force: false,
     });
