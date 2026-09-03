@@ -197,51 +197,6 @@ export default function LandingPage() {
                     </div>
                 </section>
 
-                <section className="landing-testimonials" id="stories">
-                    <div className="landing-wrap">
-                        <div className="landing-section-head landing-section-head-light">
-                            <div className="landing-eyebrow">From the campus</div>
-                            <h2>What students are saying</h2>
-                            <p>Real stories from people using Claim to get help and make money.</p>
-                        </div>
-
-                        <div className="landing-testimonial-grid">
-                            <div className="landing-testimonial-card">
-                                <p className="landing-quote">“I needed a CS tutor two days before the midterm. Found one within the hour, and they had already taken the class with the same professor.”</p>
-                                <div className="landing-persona">
-                                    <div className="landing-avatar">MT</div>
-                                    <div>
-                                        <div className="landing-name">Tyler L.</div>
-                                        <div className="landing-meta">Computer Science</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="landing-testimonial-card">
-                                <p className="landing-quote">“I make more tutoring calculus on Claim than I did at my old work-study job — and I set my own hours around my schedule.”</p>
-                                <div className="landing-persona">
-                                    <div className="landing-avatar">DR</div>
-                                    <div>
-                                        <div className="landing-name">Maya T.</div>
-                                        <div className="landing-meta">Applied Math</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="landing-testimonial-card">
-                                <p className="landing-quote">“Way less awkward than posting in a class group chat and hoping someone responds. You can actually see who you’re getting help from.”</p>
-                                <div className="landing-persona">
-                                    <div className="landing-avatar">PS</div>
-                                    <div>
-                                        <div className="landing-name">Sophia S.</div>
-                                        <div className="landing-meta">Undeclared</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
                 <section className="landing-cta">
                     <div className="landing-wrap landing-cta-box">
                         <h2>Your next helper is already on campus.</h2>
