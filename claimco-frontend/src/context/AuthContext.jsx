@@ -3,6 +3,27 @@ import { API_BASE, api } from "../api/client";
 import { socket } from "../chat/socket";
 
 const AuthContext = createContext(null);
+let pendingRestore = null;
+
+function hasUnexpiredSession(token) {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return false;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof payload.exp === "number" && payload.exp > Date.now() / 1000;
+  } catch {
+    return false;
+  }
+}
+
+function restoreUser(token) {
+  if (pendingRestore?.token === token) return pendingRestore.promise;
+  const promise = api.getMe();
+  pendingRestore = { token, promise };
+  const clear = () => { if (pendingRestore?.promise === promise) pendingRestore = null; };
+  promise.then(clear, clear);
+  return promise;
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -11,7 +32,6 @@ export function AuthProvider({ children }) {
   const [pendingEmail, setPendingEmail] = useState(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem("claimco_user");
     const token = localStorage.getItem("claimco_token");
     const pending = sessionStorage.getItem("claimco_pending_user_id");
     const pendingEmail_ = sessionStorage.getItem("claimco_pending_email");
@@ -23,15 +43,35 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    if (stored && token) {
-      setUser(JSON.parse(stored));
-      api.getMe()
-        .then((data) => persist(token, data.user))
-        .catch(() => { })
-        .finally(() => setReady(true));
-      return;
+    if (token && hasUnexpiredSession(token)) {
+      let active = true;
+      restoreUser(token)
+        .then((data) => { if (active) persist(token, data.user); })
+        .catch(() => {
+          if (active) {
+            localStorage.removeItem("claimco_token");
+            localStorage.removeItem("claimco_user");
+            setUser(null);
+          }
+        })
+        .finally(() => { if (active) setReady(true); });
+      return () => { active = false; };
     }
+    localStorage.removeItem("claimco_token");
+    localStorage.removeItem("claimco_user");
     setReady(true);
+  }, []);
+
+  useEffect(() => {
+    const expireSession = () => {
+      socket.disconnect();
+      socket.auth = { token: null };
+      localStorage.removeItem("claimco_token");
+      localStorage.removeItem("claimco_user");
+      setUser(null);
+    };
+    window.addEventListener("claimco-auth-expired", expireSession);
+    return () => window.removeEventListener("claimco-auth-expired", expireSession);
   }, []);
 
   function persist(token, user) {
@@ -118,7 +158,6 @@ export function AuthProvider({ children }) {
     sessionStorage.removeItem("claimco_show_welcome");
     sessionStorage.removeItem("claimco_pending_user_id");
     sessionStorage.removeItem("claimco_pending_email");
-    sessionStorage.removeItem("claim_admin_key");
     setPendingUserId(null);
     setPendingEmail(null);
     setUser(null);

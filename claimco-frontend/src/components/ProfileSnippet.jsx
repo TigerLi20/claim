@@ -12,7 +12,7 @@ export default function ProfileSnippet({ profile, anonymous = profile.isAnonymou
             <div className="profile-snippet-copy">
                 <div className="profile-snippet-name"><Link to={`/users/${profile.id}`}>{profile.name}</Link></div>
                 <div className="profile-snippet-meta">
-                    {profile.year || "Brown student"}
+                    {profile.year || "Verified student"}
                     {profile.concentration && <> · {profile.concentration}</>}
                 </div>
             </div>

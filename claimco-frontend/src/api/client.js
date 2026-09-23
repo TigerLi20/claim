@@ -1,118 +1,38 @@
 export const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/+$/, "");
-
-function getToken() {
-  return localStorage.getItem("claimco_token");
-}
-
 async function request(path, { method = "GET", body, auth = true, cache } = {}) {
-  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
-  const headers = isFormData ? {} : { "Content-Type": "application/json" };
-  if (auth) {
-    const token = getToken();
-    if (token) headers["Authorization"] = `Bearer ${token}`;
+  const headers = { "Content-Type": "application/json" };
+  const token = localStorage.getItem("claimco_token");
+  if (auth && token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch(`${API_BASE}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), cache });
+  const data = await response.json().catch(() => ({}));
+  if (auth && response.status === 401) {
+    localStorage.removeItem("claimco_token");
+    localStorage.removeItem("claimco_user");
+    window.dispatchEvent(new Event("claimco-auth-expired"));
   }
-
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
-    cache,
-  });
-
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
-    throw new Error(data.error || `Request failed (${res.status})`);
-  }
+  if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
   return data;
 }
-
 export const api = {
-  register: (payload) => request("/auth/register", { method: "POST", body: payload, auth: false }),
-  verifyEmail: (payload) => request("/auth/verify-email", { method: "POST", body: payload, auth: false }),
-  resendCode: (payload) => request("/auth/resend-code", { method: "POST", body: payload, auth: false }),
-  requestLoginCode: (payload) => request("/auth/request-login-code", { method: "POST", body: payload, auth: false }),
-  cancelRegistration: (pendingUserId) => request("/auth/cancel-registration", { method: "POST", body: { pendingUserId }, auth: false }),
-  login: (payload) => request("/auth/login", { method: "POST", body: payload, auth: false }),
+  register: payload => request("/auth/register", { method: "POST", body: payload, auth: false }),
+  verifyEmail: payload => request("/auth/verify-email", { method: "POST", body: payload, auth: false }),
+  resendCode: payload => request("/auth/resend-code", { method: "POST", body: payload, auth: false }),
+  requestLoginCode: payload => request("/auth/request-login-code", { method: "POST", body: payload, auth: false }),
+  cancelRegistration: pendingUserId => request("/auth/cancel-registration", { method: "POST", body: { pendingUserId }, auth: false }),
+  login: payload => request("/auth/login", { method: "POST", body: payload, auth: false }),
   getMe: () => request("/auth/me"),
-  updateProfile: (payload) => request("/auth/profile", { method: "PATCH", body: payload }),
-
-  listTasks: (status) => request(`/tasks${status ? `?status=${status}` : ""}`, { cache: "no-store" }),
-  taskStats: () => request("/tasks/stats", { cache: "no-store" }),
-  myTasks: () => request("/tasks/mine"),
-  postTask: (payload) => request("/tasks", { method: "POST", body: payload }),
-  claimTask: (id, anonymous = false, note = "") => request(`/tasks/${id}/claim`, { method: "POST", body: { anonymous, note } }),
-  completeTask: async (id) => {
-    const result = await request(`/tasks/${id}/complete`, { method: "POST" });
-    if (result.status === "done") window.dispatchEvent(new Event("notifications-updated"));
-    window.dispatchEvent(new Event("conversation-status-updated"));
-    return result;
-  },
-  cancelTask: async (id) => {
-    const result = await request(`/tasks/${id}/cancel`, { method: "POST" });
-    window.dispatchEvent(new Event("notifications-updated"));
-    return result;
-  },
-  getTask: (id) => request(`/tasks/${id}`),
-  taskApplications: (id) => request(`/tasks/${id}/applications`),
-  updateTask: (id, payload) => request(`/tasks/${id}`, { method: "PATCH", body: { ...payload, images: Array.isArray(payload.images) ? payload.images : [] } }),
-  reofferTask: (id, payload) => request(`/tasks/${id}/reoffer`, { method: "POST", body: { ...payload, images: Array.isArray(payload.images) ? payload.images : [] } }),
-
-  startOnboarding: () => request("/payments/connect/onboard", { method: "POST" }),
-  markOnboarded: () => request("/payments/connect/mark-onboarded", { method: "POST" }),
-
-  dashboardStats: () => request("/dashboard/stats"),
-
-  listServices: () => request("/services", { cache: "no-store" }),
-  myServices: () => request("/services/mine"),
-  purchasedServices: () => request("/services/purchased"),
-  serviceInstances: () => request("/services/instances"),
-  getServiceInstance: (id) => request(`/services/instances/${id}`),
-  completeServiceInstance: async (id) => {
-    const result = await request(`/services/instances/${id}/complete`, { method: "POST" });
-    if (result.fulfilled) window.dispatchEvent(new Event("notifications-updated"));
-    window.dispatchEvent(new Event("conversation-status-updated"));
-    return result;
-  },
-  postService: (payload) => request("/services", { method: "POST", body: payload }),
-  deactivateService: async (id) => {
-    const result = await request(`/services/${id}/deactivate`, { method: "POST" });
-    window.dispatchEvent(new Event("notifications-updated"));
-    return result;
-  },
-  activateService: (id) => request(`/services/${id}/activate`, { method: "POST" }),
-  getService: (id) => request(`/services/${id}`),
-  updateService: (id, payload) => request(`/services/${id}`, { method: "PATCH", body: { ...payload, images: Array.isArray(payload.images) ? payload.images : [] } }),
-  reofferService: (id, payload) => request(`/services/${id}/reoffer`, { method: "POST", body: { ...payload, images: Array.isArray(payload.images) ? payload.images : [] } }),
-  purchaseService: (id, note = "") => request(`/services/${id}/purchase`, { method: "POST", body: { note } }),
-  notifications: () => request("/notifications"),
+  updateProfile: payload => request("/auth/profile", { method: "PATCH", body: payload }),
+  listItems: ({ category = "", search = "" } = {}) => request(`/items?${new URLSearchParams({ category, search })}`, { auth: false, cache: "no-store" }),
+  myListings: () => request("/items/mine/listings"),
+  myInquiries: () => request("/items/mine/inquiries"),
+  getItem: id => request(`/items/${id}`, { auth: false }),
+  postItem: payload => request("/items", { method: "POST", body: payload }),
+  updateItem: (id, payload) => request(`/items/${id}`, { method: "PATCH", body: payload }),
+  deleteItem: id => request(`/items/${id}`, { method: "DELETE" }),
+  setItemStatus: (id, status) => request(`/items/${id}/status`, { method: "PATCH", body: { status } }),
+  interest: id => request(`/items/${id}/interest`, { method: "POST" }),
   conversations: () => request("/conversations"),
-  conversationMessages: (id) => request(`/conversations/${id}/messages`),
-  markConversationRead: (id) => request(`/conversations/${id}/read`, { method: "POST" }),
-  markNotificationRead: (id) => request(`/notifications/${id}/read`, { method: "POST" }),
-  confirmTaskApplication: async (taskId, applicationId) => {
-    const result = await request(`/tasks/${taskId}/applications/${applicationId}/confirm`, { method: "POST" });
-    window.dispatchEvent(new Event("notifications-updated"));
-    window.dispatchEvent(new Event("conversation-status-updated"));
-    return result;
-  },
-  declineTaskApplication: async (taskId, applicationId) => {
-    const result = await request(`/tasks/${taskId}/applications/${applicationId}/decline`, { method: "POST" });
-    window.dispatchEvent(new Event("notifications-updated"));
-    return result;
-  },
-  confirmServiceCustomer: async (serviceId, purchaseId) => {
-    const result = await request(`/services/${serviceId}/customers/${purchaseId}/confirm`, { method: "POST" });
-    window.dispatchEvent(new Event("notifications-updated"));
-    window.dispatchEvent(new Event("conversation-status-updated"));
-    return result;
-  },
-  declineServiceCustomer: async (serviceId, purchaseId) => {
-    const result = await request(`/services/${serviceId}/customers/${purchaseId}/decline`, { method: "POST" });
-    window.dispatchEvent(new Event("notifications-updated"));
-    return result;
-  },
-  getUserProfile: (id) => request(`/users/${id}`),
-  getReviewTarget: (kind, id) => request(`/reviews/${kind}/${id}`),
-  submitReview: (kind, id, payload) => request(`/reviews/${kind}/${id}`, { method: "POST", body: payload }),
+  conversationMessages: id => request(`/conversations/${id}/messages`),
+  markConversationRead: id => request(`/conversations/${id}/read`, { method: "POST" }),
+  getUserProfile: id => request(`/users/${id}`, { auth: false }),
 };

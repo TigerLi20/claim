@@ -1,0 +1,62 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const { randomUUID } = require("crypto");
+const jwt = require("jsonwebtoken");
+const express = require("express");
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), "claim-items-"));
+process.env.DATABASE_PATH = path.join(dir, "test.db");
+process.env.JWT_SECRET = "items-test-secret";
+const db = require("../src/db");
+const items = require("../src/routes/items");
+const conversations = require("../src/routes/conversations");
+const users = require("../src/routes/users");
+const { canAccessConversation } = require("../src/lib/conversations");
+const app = express(); app.use(express.json({ limit: "8mb" })); app.use("/items", items); app.use("/conversations", conversations); app.use("/users", users);
+test("listing CRUD, seller controls, and item scoped chat", async () => {
+  const seller = randomUUID(), buyer = randomUUID(), stranger = randomUUID();
+  for (const [id, name] of [[seller,"Seller"],[buyer,"Buyer"],[stranger,"Stranger"]]) db.prepare("INSERT INTO users (id, name, email, password_hash, status) VALUES (?, ?, ?, ?, 'active')").run(id, name, `${id}@brown.edu`, "hash");
+  const server = app.listen(0); await new Promise(resolve => server.once("listening", resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  async function request(userId, route, method = "GET", body) {
+    const headers = { "Content-Type": "application/json" };
+    if (userId) headers.Authorization = `Bearer ${jwt.sign({sub:userId}, process.env.JWT_SECRET)}`;
+    const response = await fetch(base + route, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    return [response.status, await response.json()];
+  }
+  try {
+    const payload = { title:"Desk lamp", description:"Working lamp", price:12.5, category:"home", condition:"used", images:["data:image/png;base64,abcd"] };
+    const [createdStatus, first] = await request(seller, "/items", "POST", payload); assert.equal(createdStatus, 201); assert.equal(first.images.length, 1);
+    assert.equal((await request(seller, "/items", "POST", { ...payload, images: Array(4).fill(payload.images[0]) }))[0], 400);
+    const [, second] = await request(seller, "/items", "POST", { ...payload, title:"Second lamp" });
+    const [, browse] = await request(buyer, "/items?category=home&search=desk"); assert.equal(browse.length, 1);
+    assert.equal((await request(null, "/items?category=home&search=desk"))[1].length, 1);
+    assert.equal((await request(null, `/items/${first.id}`))[1].title, "Desk lamp");
+    const [, publicSeller] = await request(null, `/users/${seller}`);
+    assert.equal(publicSeller.name, "Seller");
+    assert.equal("email" in publicSeller, false);
+    assert.equal((await request(null, "/items", "POST", payload))[0], 401);
+    assert.equal((await request(null, "/items/mine/listings"))[0], 401);
+    assert.equal((await request(null, `/items/${first.id}/interest`, "POST"))[0], 401);
+    assert.equal((await request(null, `/items/${first.id}/status`, "PATCH", { status:"sold" }))[0], 401);
+    assert.equal((await request(null, "/conversations"))[0], 401);
+    const [, inquiry1] = await request(buyer, `/items/${first.id}/interest`, "POST");
+    const [, inquiry1Again] = await request(buyer, `/items/${first.id}/interest`, "POST");
+    const [, inquiry2] = await request(buyer, `/items/${second.id}/interest`, "POST");
+    assert.equal(inquiry1.conversationId, inquiry1Again.conversationId);
+    assert.notEqual(inquiry1.conversationId, inquiry2.conversationId);
+    assert.equal(await canAccessConversation(inquiry1.conversationId, stranger), false);
+    assert.equal((await request(stranger, `/conversations/${inquiry1.conversationId}/messages`))[0], 404);
+    assert.equal((await request(buyer, `/items/${first.id}/status`, "PATCH", {status:"sold"}))[0], 403);
+    assert.equal((await request(seller, `/items/${first.id}/status`, "PATCH", {status:"sold"}))[1].status, "sold");
+    assert.equal((await request(null, "/items?category=home&search=desk"))[1].length, 0);
+    assert.equal((await request(null, `/items/${first.id}`))[1].status, "sold");
+    assert.equal((await request(stranger, `/items/${first.id}/interest`, "POST"))[0], 409);
+    assert.equal((await request(buyer, "/items/mine/inquiries"))[1].length, 2);
+    assert.equal((await request(seller, `/items/${first.id}`, "PATCH", {title:"Updated lamp"}))[1].title, "Updated lamp");
+    assert.equal((await request(seller, `/items/${first.id}`, "DELETE"))[0], 200);
+    assert.equal(await canAccessConversation(inquiry1.conversationId, buyer), false);
+  } finally { await new Promise(resolve => server.close(resolve)); fs.rmSync(dir, { recursive:true, force:true }); }
+});

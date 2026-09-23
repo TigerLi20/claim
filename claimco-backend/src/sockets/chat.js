@@ -32,6 +32,10 @@ module.exports = function registerChatSocket(io) {
             if (await canAccessConversation(conversationId, socket.userId)) socket.join(`conversation:${conversationId}`);
         });
 
+        socket.on("leave_conversation", (conversationId) => {
+            socket.leave(`conversation:${conversationId}`);
+        });
+
         socket.on("send_message", async ({ conversationId, body } = {}, acknowledge) => {
             const text = typeof body === "string" ? body.trim() : "";
             if (!text || text.length > 1000) return acknowledge?.({ error: "Message must be between 1 and 1000 characters" });

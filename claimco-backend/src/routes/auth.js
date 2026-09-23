@@ -43,7 +43,6 @@ function publicUser(user) {
     concentration: user.concentration || "",
     aboutMe: user.about_me || "",
     profileImage: user.profile_image || null,
-    stripeOnboarded: !!user.stripe_onboarded,
     phoneNumber: user.phone_number || null,
     schoolEmail: user.school_email || null,
     status: user.status || "active",
@@ -150,19 +149,19 @@ router.post("/register", async (req, res) => {
   const approvedDomain = await db.prepare("SELECT domain FROM approved_domains WHERE domain = ?").get(domain);
   if (!approvedDomain) {
     // Generic message to avoid user enumeration
-    return res.status(400).json({ error: "Unable to register with these details" });
+    return res.status(400).json({ error: "Check your school email and phone number, or sign in if you already have an account." });
   }
 
   // Check if email already claimed by active user
   const existingByEmail = await db.prepare("SELECT id FROM users WHERE school_email = ? AND status = 'active'").get(normalizedEmail);
   if (existingByEmail) {
-    return res.status(400).json({ error: "Unable to register with these details" });
+    return res.status(400).json({ error: "Check your school email and phone number, or sign in if you already have an account." });
   }
 
   // Check if phone already claimed by active user
   const existingByPhone = await db.prepare("SELECT id FROM users WHERE phone_number = ? AND status = 'active'").get(phoneNumber);
   if (existingByPhone) {
-    return res.status(400).json({ error: "Unable to register with these details" });
+    return res.status(400).json({ error: "Check your school email and phone number, or sign in if you already have an account." });
   }
 
   // Replace abandoned pending registrations so a failed Back-button cleanup

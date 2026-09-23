@@ -10,9 +10,10 @@ export default function Chat() {
     const { user } = useAuth();
     const [messages, setMessages] = useState([]);
     const [otherUser, setOtherUser] = useState(null);
+    const [item, setItem] = useState(null);
     const [draft, setDraft] = useState("");
     const [error, setError] = useState("");
-    const bottomRef = useRef(null);
+    const messagesRef = useRef(null);
     const currentUserId = String(user?.id ?? "");
 
     useEffect(() => {
@@ -20,21 +21,19 @@ export default function Chat() {
             api.markConversationRead(conversationId).then(() => window.dispatchEvent(new Event("conversation-read"))).catch(() => { });
             api.conversationMessages(conversationId).then((data) => {
                 setOtherUser(data.otherUser);
+                setItem(data.item);
                 setMessages(data.messages);
             }).catch((err) => setError(err.message));
         };
 
         refreshConversation();
-        if (socket.connected) socket.disconnect();
         socket.auth = { token: localStorage.getItem("claimco_token") };
         function joinConversation() {
             socket.emit("join_conversation", conversationId);
         }
+        socket.on("connect", joinConversation);
         if (socket.connected) joinConversation();
-        else {
-            socket.once("connect", joinConversation);
-            socket.connect();
-        }
+        else socket.connect();
         function onMessage(message) {
             if (String(message.conversationId) === String(conversationId)) setMessages((current) => [...current, message]);
         }
@@ -46,14 +45,14 @@ export default function Chat() {
         return () => {
             socket.off("new_message", onMessage);
             socket.off("connect", joinConversation);
+            socket.emit("leave_conversation", conversationId);
             window.removeEventListener("conversation-status-updated", refreshConversation);
             clearInterval(heartbeat);
-            socket.disconnect();
         };
     }, [conversationId, user?.id]);
 
     useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
     }, [messages]);
 
     function sendMessage(event) {
@@ -74,14 +73,14 @@ export default function Chat() {
         <div className="content chat-page">
             <Link className="back-link" to="/messages"><ArrowLeft size={14} /> Back to chats</Link>
             {error && <div className="banner banner-error">{error}</div>}
-            {otherUser && <h1 className="chat-heading">Conversation with {otherUser.name}</h1>}
+            {otherUser && <h1 className="chat-heading">{item?.title} · {otherUser.name}</h1>}
+            {item && <Link to={`/items/${item.id}`}>View item</Link>}
             <div className="chat-room">
-                <div className="chat-messages">
+                <div className="chat-messages" ref={messagesRef}>
                     {messages.map((message) => {
                         const isMine = String(message.senderId) === currentUserId;
                         return <div key={message.id} className={`chat-message ${isMine ? "chat-message-mine" : "chat-message-other"}`}>{message.body}</div>;
                     })}
-                    <div ref={bottomRef} />
                 </div>
                 <form className="chat-input" onSubmit={sendMessage}>
                     <input

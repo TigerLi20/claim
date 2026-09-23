@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const cors = require("cors");
 
+process.env.DATABASE_PATH = require("path").join(require("os").tmpdir(), `claim-postgres-compat-${process.pid}.db`);
 const dbModule = require("../src/db");
 const { isValidImageString, normalizeImageValue } = require("../src/lib/cloudinary");
 const authRoutes = require("../src/routes/auth");

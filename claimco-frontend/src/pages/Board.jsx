@@ -1,179 +1,30 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Search, ArrowRight } from "lucide-react";
 import { api } from "../api/client";
-import Ticket from "../components/Ticket";
-import ConfirmDialog from "../components/ConfirmDialog";
-import { useAuth } from "../context/AuthContext";
-
+import { ITEM_CATEGORIES } from "../itemCategories";
+import ItemCard from "../components/ItemCard";
 export default function Board() {
-  const { user } = useAuth();
-  const location = useLocation();
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [busyId, setBusyId] = useState(null);
-  const [anonymousClaims, setAnonymousClaims] = useState({});
-  const [pendingRequests, setPendingRequests] = useState({});
-  const [confirmation, setConfirmation] = useState(null);
-  const [search, setSearch] = useState("");
-  const [stats, setStats] = useState({ openCount: 0, claimedCount: 0, fulfilledCount: 0 });
-  const [onboardingChoice, setOnboardingChoice] = useState("");
-
-  useEffect(() => {
-    const syncChoice = () => {
-      setOnboardingChoice(sessionStorage.getItem("claimco_onboarding_choice") || "");
-    };
-
-    syncChoice();
-    window.addEventListener("onboarding-choice-updated", syncChoice);
-    return () => window.removeEventListener("onboarding-choice-updated", syncChoice);
-  }, [location.pathname]);
-
-  const normalizedSearch = search.trim().toLowerCase();
-  const clearOnboardingPrompt = () => {
-    if (!sessionStorage.getItem("claimco_onboarding_choice")) return;
-    sessionStorage.removeItem("claimco_onboarding_choice");
-    setOnboardingChoice("");
-  };
-  const visibleTasks = normalizedSearch
-    ? tasks.filter((task) => String(task.title || "").toLowerCase().includes(normalizedSearch))
-    : tasks;
-
-  async function load() {
+  const [params, setParams] = useSearchParams();
+  const search = params.get("search") || "";
+  const category = ITEM_CATEGORIES.some(c => c.id === params.get("category")) ? params.get("category") : "";
+  const [items, setItems] = useState([]), [error, setError] = useState(""), [loading, setLoading] = useState(true);
+  const updateFilter = (key, value) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setParams(next, { replace: true });
     setLoading(true);
-    setError("");
-    try {
-      const [data, stats] = await Promise.all([api.listTasks(), api.taskStats()]);
-      setTasks(data);
-      setStats(stats);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }
-
+  };
   useEffect(() => {
-    load();
-    const refreshTimer = window.setInterval(load, 30000);
-    return () => window.clearInterval(refreshTimer);
-  }, []);
-
-  async function handleClaim(id) {
-    setConfirmation({
-      message: "Are you sure you want to request to claim this task?",
-      onConfirm: (note) => submitClaim(id, note),
-    });
-  }
-
-  async function submitClaim(id, note) {
-    setBusyId(id);
-    setError("");
-    try {
-      await api.claimTask(id, !!anonymousClaims[id], note);
-      setPendingRequests((requests) => ({ ...requests, [id]: true }));
-      await load();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function handleComplete(id) {
-    setBusyId(id);
-    setError("");
-    try {
-      await api.completeTask(id);
-      await load();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function handleUpdate(id, payload) {
-    setBusyId(id);
-    setError("");
-    try {
-      await api.updateTask(id, payload);
-      await load();
-    } catch (err) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  return (
-    <div className="content">
-      {confirmation && (
-        <ConfirmDialog
-          message={confirmation.message}
-          allowNote
-          onCancel={() => setConfirmation(null)}
-          onConfirm={(note) => { setConfirmation(null); confirmation.onConfirm(note); }}
-        />
-      )}
-      {error && <div className="banner banner-error">{error}</div>}
-      <div className="page-heading">
-        <div>
-          <div className="section-label">OPEN REQUESTS</div>
-          <h1 className="page-title">Browse tasks</h1>
-        </div>
-        <Link
-          className={`btn btn-complete ${onboardingChoice === "post" ? "onboarding-pulse" : ""}`}
-          to="/post"
-          style={{ textDecoration: 'none' }}
-          onClick={clearOnboardingPrompt}
-        >
-          <Plus size={15} /> Post a task
-        </Link>
-      </div>
-      {!loading && (
-        <div className="browser-search-wrap">
-          <input
-            className={`browser-search ${onboardingChoice === "browse" ? "onboarding-pulse" : ""}`}
-            type="text"
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value);
-              clearOnboardingPrompt();
-            }}
-            placeholder="Search task titles"
-            aria-label="Search task titles"
-          />
-        </div>
-      )}
-      {loading ? (
-        <div className="loading-note">Loading tickets…</div>
-      ) : visibleTasks.length === 0 ? (
-        <div className="empty-note">{search.trim() ? `No open tasks match “${search.trim()}”` : "No tickets yet — post the first one."}</div>
-      ) : (
-        <>
-          <div className="board">
-            {visibleTasks.map((t) => (
-              <Ticket
-                key={t.id}
-                task={t}
-                currentUserId={user.id}
-                onClaim={handleClaim}
-                claimPending={!!pendingRequests[t.id]}
-                onComplete={handleComplete}
-                onUpdate={handleUpdate}
-                anonymousClaim={!!anonymousClaims[t.id]}
-                onAnonymousClaimChange={(anonymous) =>
-                  setAnonymousClaims((claims) => ({ ...claims, [t.id]: anonymous }))
-                }
-                busy={busyId === t.id}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
+    let active = true;
+    const timer = setTimeout(() => api.listItems({ category, search }).then(data => { if (active) { setItems(data); setError(""); } }).catch(err => { if (active) setError(err.message); }).finally(() => { if (active) setLoading(false); }), 150);
+    return () => { active = false; clearTimeout(timer); };
+  }, [category, search]);
+  return <main className="content browse-page"><h1 className="visually-hidden">Browse items</h1>
+    <div className="item-filters"><div className="search-wrap"><Search size={20} /><input className="browser-search" value={search} onChange={event => updateFilter("search", event.target.value)} placeholder="Search for something good..." aria-label="Search item titles" /></div><select value={category} onChange={event => updateFilter("category", event.target.value)} aria-label="Category"><option value="">All categories</option>{ITEM_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}</select><Link className="btn btn-complete" to="/post">List an item <ArrowRight size={17} /></Link></div>
+    <div className="category-chips"><button className={!category ? "active" : ""} onClick={() => updateFilter("category", "")}>All items</button>{ITEM_CATEGORIES.map(c => <button key={c.id} className={category === c.id ? "active" : ""} onClick={() => updateFilter("category", c.id)}>{c.label}</button>)}</div>
+    <div className="results-heading"><h2>{category ? ITEM_CATEGORIES.find(c => c.id === category)?.label : "Fresh finds"}</h2><span>{!loading && !error ? `${items.length} item${items.length === 1 ? "" : "s"}` : ""}</span></div>
+    {error && <div className="banner banner-error">{error}</div>}{loading ? <div className="loading-note">Loading items…</div> : items.length ? <div className="item-grid">{items.map(item => <ItemCard key={item.id} item={item} />)}</div> : <div className="empty-note"><strong>No finds here yet.</strong><span>Try another category or search.</span></div>}
+  </main>;
 }

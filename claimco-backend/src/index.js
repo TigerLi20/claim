@@ -4,15 +4,9 @@ const cors = require("cors");
 const db = require("./db");
 
 const authRoutes = require("./routes/auth");
-const taskRoutes = require("./routes/tasks");
-const paymentRoutes = require("./routes/payments");
-const dashboardRoutes = require("./routes/dashboard");
-const serviceRoutes = require("./routes/services");
+const itemRoutes = require("./routes/items");
 const userRoutes = require("./routes/users");
-const notificationRoutes = require("./routes/notifications");
-const reviewRoutes = require("./routes/reviews");
 const conversationRoutes = require("./routes/conversations");
-const supportRoutes = require("./routes/support");
 const http = require("http");
 const { Server } = require("socket.io");
 const registerChatSocket = require("./sockets/chat");
@@ -44,15 +38,9 @@ app.use(express.json({ limit: "8mb" }));
 app.get("/health", (req, res) => res.json({ ok: true }));
 
 app.use("/auth", authRoutes);
-app.use("/tasks", taskRoutes);
-app.use("/payments", paymentRoutes);
-app.use("/dashboard", dashboardRoutes);
-app.use("/services", serviceRoutes);
+app.use("/items", itemRoutes);
 app.use("/users", userRoutes);
-app.use("/notifications", notificationRoutes);
-app.use("/reviews", reviewRoutes);
 app.use("/conversations", conversationRoutes);
-app.use("/api/support", supportRoutes);
 
 app.use((req, res) => res.status(404).json({ error: "Not found" }));
 
@@ -100,14 +88,12 @@ async function cleanupAbandonedPendingUsers() {
 const rateLimiter = require("./lib/rateLimiter");
 
 Promise.resolve(db.ready).then(async () => {
-  await taskRoutes.expireUnclaimableTasks();
-  setInterval(() => taskRoutes.expireUnclaimableTasks().catch(console.error), 30000);
   await cleanupAbandonedPendingUsers();
   setInterval(() => cleanupAbandonedPendingUsers().catch(console.error), 10 * 60 * 1000);
   setInterval(() => rateLimiter.cleanup(), 60 * 60 * 1000);
 
   httpServer.listen(PORT, () => {
-    console.log(`Claim backend listening on port ${PORT}`);
+    console.log(`Bruno Sells backend listening on port ${PORT}`);
   });
 }).catch(() => {
   process.exit(1);

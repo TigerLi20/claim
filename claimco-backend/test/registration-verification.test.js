@@ -22,8 +22,8 @@ test("Production delivery provider uses Resend and does not trigger allowlist by
             emails: {
                 send: async (payload) => {
                     called.sent = true;
-                    assert.equal(payload.from, "verify@example.com");
-                    assert.equal(payload.subject, "Verify your Claim Co email");
+                    assert.equal(payload.from, "Bruno Sells <verify@example.com>");
+                    assert.equal(payload.subject, "Verify your Bruno Sells email");
                     assert.equal(payload.to, "student@example.com");
                     return { id: "test-email-id" };
                 }
@@ -57,7 +57,7 @@ function spawnTestServer() {
     const { spawn } = require("child_process");
     const server = spawn("node", ["src/index.js"], {
         cwd: path.join(__dirname, ".."),
-        env: { ...process.env, NODE_ENV: "test", PORT: 3002 }
+        env: { ...process.env, NODE_ENV: "test", PORT: 3002, DATABASE_PATH: DB_PATH, JWT_SECRET: "registration-test-secret" }
     });
 
     return new Promise((resolve, reject) => {
@@ -87,8 +87,9 @@ function spawnTestServer() {
 }
 
 test("Registration and Email Verification Flow", async (t) => {
-    // Note: These tests require a running server on port 3001
-    const BASE_URL = "http://localhost:3001";
+    const server = await spawnTestServer();
+    t.after(() => server.kill());
+    const BASE_URL = "http://localhost:3002";
 
     await t.test("should register a user with pending status", async () => {
         const response = await fetch(`${BASE_URL}/auth/register`, {

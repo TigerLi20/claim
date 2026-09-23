@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { safeNext } from "../authNavigation";
 
 const CONCENTRATIONS = [
   "Africana Studies",
@@ -121,6 +122,7 @@ export default function AuthPage() {
   const [busy, setBusy] = useState(false);
   const { login, register, verifyEmail, resendCode, requestLoginCode, pendingUserId, pendingEmail, clearPending } = useAuth();
   const navigate = useNavigate();
+  const next = safeNext(searchParams.get("next"));
 
   useEffect(() => {
     const nextMode = searchParams.get("mode") === "register" ? "register" : "login";
@@ -150,33 +152,6 @@ export default function AuthPage() {
       return () => clearTimeout(timer);
     }
   }, [loginResendCooldown]);
-
-  // Clean up pending registration when user navigates away (browser back, close tab, etc.)
-  useEffect(() => {
-    if (screen === "verify" && pendingUserId) {
-      const handleBeforeUnload = () => {
-        // Fire cleanup async (don't wait for it to complete)
-        clearPending().catch(err => console.error("Failed to cleanup pending registration:", err));
-      };
-
-      window.addEventListener("beforeunload", handleBeforeUnload);
-
-      return () => {
-        window.removeEventListener("beforeunload", handleBeforeUnload);
-      };
-    }
-  }, [screen, pendingUserId, clearPending]);
-
-  // Additional cleanup for browser back navigation (catches cases where beforeunload doesn't complete)
-  useEffect(() => {
-    return () => {
-      // This runs when component unmounts. If we're still in verify state with a pending user,
-      // it means we're navigating away without completing verification.
-      if (screen === "verify" && pendingUserId) {
-        clearPending().catch(err => console.error("Failed to cleanup pending registration on unmount:", err));
-      }
-    };
-  }, [screen, pendingUserId, clearPending]);
 
   function updateMode(nextMode) {
     setMode(nextMode);
@@ -233,7 +208,7 @@ export default function AuthPage() {
       sessionStorage.setItem("claimco_pending_onboarding", "1");
       sessionStorage.setItem("claimco_show_welcome", "1");
       window.dispatchEvent(new CustomEvent("welcome-guide-available"));
-      navigate("/board");
+      navigate(next, { replace: true });
     } catch (err) {
       setError(err.message);
       setVerificationCode("");
@@ -305,7 +280,7 @@ export default function AuthPage() {
       }
 
       await login({ email: loginForm.email, code: loginForm.code });
-      navigate("/board");
+      navigate(next, { replace: true });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -319,8 +294,8 @@ export default function AuthPage() {
       <div className="auth-page-shell">
         <header className="auth-header">
           <div className="auth-header-inner">
-            <div className="brand-lockup" aria-label="Claim home">
-              <span className="brand-word">Claim</span>
+            <div className="brand-lockup" aria-label="Bruno Sells home">
+              <span className="brand-word">Bruno <span>Sells</span></span>
             </div>
           </div>
         </header>
@@ -382,12 +357,12 @@ export default function AuthPage() {
         <footer className="auth-footer">
           <div className="auth-trust-strip">
             <div className="auth-trust-item">
-              <strong>$0</strong>
-              <span>platform fees</span>
+              <strong>Direct</strong>
+              <span>buyer and seller payments</span>
             </div>
             <div className="auth-trust-item">
-              <strong>4.8 / 5</strong>
-              <span>avg. rating</span>
+              <strong>Local</strong>
+              <span>secondhand finds</span>
             </div>
             <div className="auth-trust-item">
               <strong>Verified</strong>
@@ -404,8 +379,8 @@ export default function AuthPage() {
     <div className="auth-page-shell">
       <header className="auth-header">
         <div className="auth-header-inner">
-          <div className="brand-lockup" aria-label="Claim home">
-            <span className="brand-word">Claim</span>
+          <div className="brand-lockup" aria-label="Bruno Sells home">
+            <span className="brand-word">Bruno <span>Sells</span></span>
           </div>
 
           <button
@@ -582,7 +557,7 @@ export default function AuthPage() {
           </form>
 
           <div className="auth-switch">
-            {mode === "login" ? "New to Claim?" : "Already have an account?"} {" "}
+            {mode === "login" ? "New to Bruno Sells?" : "Already have an account?"} {" "}
             <button type="button" onClick={() => updateMode(mode === "login" ? "register" : "login")}>
               {mode === "login" ? "Create an account" : "Sign in"}
             </button>
@@ -593,12 +568,12 @@ export default function AuthPage() {
       <footer className="auth-footer">
         <div className="auth-trust-strip">
           <div className="auth-trust-item">
-            <strong>$0</strong>
-            <span>platform fees</span>
+            <strong>Direct</strong>
+            <span>buyer and seller payments</span>
           </div>
           <div className="auth-trust-item">
-            <strong>4.8 / 5</strong>
-            <span>avg. rating</span>
+            <strong>Local</strong>
+            <span>secondhand finds</span>
           </div>
           <div className="auth-trust-item">
             <strong>Verified</strong>

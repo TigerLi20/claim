@@ -10,18 +10,7 @@ async function getUserEmail(userId) {
 
 function isEmailAllowed(type) {
     if (!type) return false;
-    const allowed = new Set([
-        "task_application",
-        "task_confirmed",
-        "task_confirmation_sent",
-        "task_declined",
-        "review_request",
-        "service_purchase",
-        "service_confirmed",
-        "service_confirmation_sent",
-        "service_declined",
-        "message",
-    ]);
+    const allowed = new Set(["message"]);
     return allowed.has(type);
 }
 
@@ -54,7 +43,7 @@ async function sendDirectMessageEmail({ recipientId, senderId, messageText, conv
 
     return sendMaybe(recipientId, {
         type: "message",
-        subject: `New message from ${senderName} on Claim`,
+        subject: `New message from ${senderName} on Bruno Sells`,
         text: `${senderName} sent you a message: ${preview}${preview.length >= 180 ? "..." : ""}\n\nOpen the app to reply.`,
         html: `
       <h2>New message from ${senderName}</h2>
