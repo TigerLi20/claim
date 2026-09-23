@@ -249,6 +249,7 @@ label{display:block;color:#2f3337;font-size:13px;font-weight:800;margin-bottom:8
 .auth-form{display:grid;gap:17px}
 .field-group label{margin-bottom:7px}
 .field-group input,.field-group select{width:100%}
+.auth-spam-hint{font-size:12px;line-height:1.5;color:#8a8e92;margin:8px 0 0}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:13px}
 .auth-submit{border:0;border-radius:9px;min-height:49px;background:#242529;color:white;font-weight:800;margin-top:4px}
 .auth-submit:hover{background:#3b3c40}

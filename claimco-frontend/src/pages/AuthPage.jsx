@@ -327,6 +327,7 @@ export default function AuthPage() {
                   required
                   autoComplete="off"
                 />
+                <p className="auth-spam-hint">No code yet? Check your spam or junk folder.</p>
               </div>
 
               <div className="auth-inline-row-verify">
@@ -525,6 +526,7 @@ export default function AuthPage() {
                   placeholder="000000"
                   required
                 />
+                <p className="auth-spam-hint">No code yet? Check your spam or junk folder.</p>
               </div>
             )}
 
