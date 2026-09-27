@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { safeNext } from "../authNavigation";
+import { trackEvent } from "../analytics";
 
 const CONCENTRATIONS = [
   "Africana Studies",
@@ -185,6 +186,7 @@ export default function AuthPage() {
         year: registerForm.year,
         concentration: registerForm.concentration,
       });
+      trackEvent("registration-code-requested");
 
       // Screen will automatically switch to verification via useEffect
     } catch (err) {
@@ -204,6 +206,7 @@ export default function AuthPage() {
       }
 
       await verifyEmail(pendingUserId, verificationCode);
+      trackEvent("registration-verified");
       // Set flags for first-time onboarding flow
       sessionStorage.setItem("claimco_pending_onboarding", "1");
       sessionStorage.setItem("claimco_show_welcome", "1");
@@ -248,6 +251,7 @@ export default function AuthPage() {
       }
 
       await requestLoginCode(loginForm.email);
+      trackEvent("login-code-requested");
       setLoginForm({ ...loginForm, codeSent: true, code: "" });
     } catch (err) {
       setError(err.message);

@@ -8,12 +8,13 @@ import { authPath } from "../authNavigation";
 import ImageGallery from "../components/ImageGallery";
 import ItemForm from "../components/ItemForm";
 import ProfileSnippet from "../components/ProfileSnippet";
+import { trackEvent } from "../analytics";
 
 export default function ItemDetail() {
   const { id } = useParams(), navigate = useNavigate(), { user } = useAuth();
   const [item, setItem] = useState(null), [error, setError] = useState(""), [busy, setBusy] = useState(false), [editing, setEditing] = useState(false);
   useEffect(() => { api.getItem(id).then(setItem).catch(err => setError(err.message)); }, [id]);
-  async function message() { if (!user) { navigate(authPath(`/items/${id}`)); return; } setBusy(true); setError(""); try { const data = await api.interest(id); navigate(`/chat/${data.conversationId}`); } catch (err) { setError(err.message); } finally { setBusy(false); } }
+  async function message() { trackEvent("message-seller-clicked"); if (!user) { navigate(authPath(`/items/${id}`)); return; } setBusy(true); setError(""); try { const data = await api.interest(id); trackEvent("inquiry-opened"); navigate(`/chat/${data.conversationId}`); } catch (err) { setError(err.message); } finally { setBusy(false); } }
   async function status(value) { setBusy(true); setError(""); try { setItem(await api.setItemStatus(id, value)); } catch (err) { setError(err.message); } finally { setBusy(false); } }
   async function remove() { if (!window.confirm("Remove this listing and its chats?")) return; setBusy(true); try { await api.deleteItem(id); navigate("/mine"); } catch (err) { setError(err.message); setBusy(false); } }
   return <main className="content detail-page"><Link className="back-link" to="/board"><ArrowLeft size={17} /> Back to items</Link>{error && <div className="banner banner-error">{error}</div>}{!item && !error && <div className="loading-note">Loading item…</div>}{item && <>

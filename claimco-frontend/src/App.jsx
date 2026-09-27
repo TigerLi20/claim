@@ -17,10 +17,12 @@ import Help from "./pages/Help";
 import LandingPage from "./pages/LandingPage";
 import { useAuth } from "./context/AuthContext";
 import { safeNext } from "./authNavigation";
+import { trackPage } from "./analytics";
 export default function App() {
   const { ready, user } = useAuth(), location = useLocation();
   const [showWelcome, setShowWelcome] = useState(false);
   useEffect(() => { document.title = `Bruno Sells · ${location.pathname.startsWith("/items/") ? "Item" : location.pathname === "/board" ? "Browse items" : location.pathname === "/mine" ? "My items" : "Campus marketplace"}`; }, [location.pathname]);
+  useEffect(() => { trackPage(location.pathname); }, [location.pathname]);
   useEffect(() => { const open = () => setShowWelcome(true); window.addEventListener("show-welcome-guide", open); window.addEventListener("open-welcome-guide", open); return () => { window.removeEventListener("show-welcome-guide", open); window.removeEventListener("open-welcome-guide", open); }; }, []);
   if (!ready) return null;
   const protectedPage = page => <ProtectedRoute>{page}</ProtectedRoute>;
