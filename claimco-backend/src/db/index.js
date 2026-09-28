@@ -73,6 +73,8 @@ function createPostgresDb() {
         await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS online_status TEXT NOT NULL DEFAULT 'offline'");
         await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ");
         await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_public_id TEXT");
+        await pool.query("ALTER TABLE items ADD COLUMN IF NOT EXISTS sold_at TEXT");
+        await pool.query("INSERT INTO analytics_meta (id, started_at) VALUES (1, TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')) ON CONFLICT (id) DO NOTHING");
         await pool.query("ALTER TABLE users DROP COLUMN IF EXISTS stripe_account_id");
         await pool.query("ALTER TABLE users DROP COLUMN IF EXISTS stripe_onboarded");
         await pool.query("INSERT INTO approved_domains (domain, school_name) VALUES ('brown.edu', 'Brown University') ON CONFLICT (domain) DO NOTHING");
@@ -168,6 +170,9 @@ function setupSqliteDb() {
     for (const [column, definition] of [["year", "TEXT"], ["concentration", "TEXT"], ["about_me", "TEXT"], ["profile_image", "TEXT"], ["profile_image_public_id", "TEXT"], ["school_email", "TEXT"], ["phone_number", "TEXT"], ["email_verified_at", "TEXT"], ["status", "TEXT DEFAULT 'active'"], ["online_status", "TEXT NOT NULL DEFAULT 'offline'"], ["last_seen_at", "TEXT"]]) {
         if (!userColumns.includes(column)) db.exec(`ALTER TABLE users ADD COLUMN ${column} ${definition}`);
     }
+    const itemColumns = db.prepare("PRAGMA table_info(items)").all().map((column) => column.name);
+    if (!itemColumns.includes("sold_at")) db.exec("ALTER TABLE items ADD COLUMN sold_at TEXT");
+    db.prepare("INSERT OR IGNORE INTO analytics_meta (id, started_at) VALUES (1, datetime('now'))").run();
     if (!db.prepare("SELECT domain FROM approved_domains WHERE domain = 'brown.edu'").get()) {
         db.prepare("INSERT INTO approved_domains (domain, school_name) VALUES (?, ?)").run("brown.edu", "Brown University");
     }

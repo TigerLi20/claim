@@ -7,6 +7,7 @@ const authRoutes = require("./routes/auth");
 const itemRoutes = require("./routes/items");
 const userRoutes = require("./routes/users");
 const conversationRoutes = require("./routes/conversations");
+const analyticsRoutes = require("./routes/analytics");
 const http = require("http");
 const { Server } = require("socket.io");
 const registerChatSocket = require("./sockets/chat");
@@ -41,6 +42,7 @@ app.use("/auth", authRoutes);
 app.use("/items", itemRoutes);
 app.use("/users", userRoutes);
 app.use("/conversations", conversationRoutes);
+app.use("/analytics", analyticsRoutes);
 
 app.use((req, res) => res.status(404).json({ error: "Not found" }));
 

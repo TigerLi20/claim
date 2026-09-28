@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, MessageCircle } from "lucide-react";
 import { api } from "../api/client";
@@ -8,12 +8,13 @@ import { authPath } from "../authNavigation";
 import ImageGallery from "../components/ImageGallery";
 import ItemForm from "../components/ItemForm";
 import ProfileSnippet from "../components/ProfileSnippet";
-import { trackEvent } from "../analytics";
+import { behavioralTrackingEnabled, trackEvent } from "../analytics";
 
 export default function ItemDetail() {
   const { id } = useParams(), navigate = useNavigate(), { user } = useAuth();
   const [item, setItem] = useState(null), [error, setError] = useState(""), [busy, setBusy] = useState(false), [editing, setEditing] = useState(false);
-  useEffect(() => { api.getItem(id).then(setItem).catch(err => setError(err.message)); }, [id]);
+  const viewedId = useRef(null);
+  useEffect(() => { let active = true; api.getItem(id).then(data => { if (!active) return; setItem(data); if (behavioralTrackingEnabled && data.status !== "sold" && user?.id !== data.sellerId && viewedId.current !== id) { viewedId.current = id; api.trackItemView().catch(() => {}); } }).catch(err => { if (active) setError(err.message); }); return () => { active = false; }; }, [id, user?.id]);
   async function message() { trackEvent("message-seller-clicked"); if (!user) { navigate(authPath(`/items/${id}`)); return; } setBusy(true); setError(""); try { const data = await api.interest(id); trackEvent("inquiry-opened"); navigate(`/chat/${data.conversationId}`); } catch (err) { setError(err.message); } finally { setBusy(false); } }
   async function status(value) { setBusy(true); setError(""); try { setItem(await api.setItemStatus(id, value)); } catch (err) { setError(err.message); } finally { setBusy(false); } }
   async function remove() { if (!window.confirm("Remove this listing and its chats?")) return; setBusy(true); try { await api.deleteItem(id); navigate("/mine"); } catch (err) { setError(err.message); setBusy(false); } }

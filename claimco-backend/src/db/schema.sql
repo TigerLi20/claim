@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS items (
   category TEXT NOT NULL, condition TEXT NOT NULL CHECK (condition IN ('new','like-new','used')),
   images_json TEXT NOT NULL DEFAULT '[]', image_public_ids_json TEXT NOT NULL DEFAULT '[]',
   status TEXT NOT NULL DEFAULT 'available' CHECK (status IN ('available','pending','sold')),
+  sold_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_items_status ON items(status, created_at);
@@ -37,3 +38,7 @@ CREATE TABLE IF NOT EXISTS verification_codes (
 CREATE INDEX IF NOT EXISTS idx_verification_codes_pending_user ON verification_codes(pending_user_id);
 CREATE INDEX IF NOT EXISTS idx_verification_codes_expires_at ON verification_codes(expires_at);
 CREATE TABLE IF NOT EXISTS approved_domains (domain TEXT PRIMARY KEY, school_name TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS analytics_meta (id INTEGER PRIMARY KEY, started_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS analytics_daily (id TEXT PRIMARY KEY, item_views INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS analytics_search_sessions (id TEXT PRIMARY KEY, created_at TEXT NOT NULL, item_opened INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX IF NOT EXISTS idx_analytics_search_sessions_created ON analytics_search_sessions(created_at);

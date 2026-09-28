@@ -2,6 +2,7 @@
 const websiteId = (import.meta.env.VITE_UMAMI_WEBSITE_ID || "2b4a5bb0-0c8d-4882-b780-e4dff636eea4").trim();
 const enabled = import.meta.env.PROD && Boolean(websiteId) &&
   ["claimforcampus.com", "www.claimforcampus.com"].includes(window.location.hostname);
+export const behavioralTrackingEnabled = enabled && !["1", "yes"].includes(navigator.doNotTrack || window.doNotTrack);
 
 let pendingPage = null;
 const pendingEvents = [];
@@ -12,7 +13,7 @@ export function analyticsPath(pathname) {
   if (/^\/items\/[^/]+\/?$/.test(path)) return "/items/:id";
   if (/^\/users\/[^/]+\/?$/.test(path)) return "/users/:id";
   if (/^\/chat\/[^/]+\/?$/.test(path)) return "/chat/:conversationId";
-  const publicPaths = ["/", "/login", "/board", "/post", "/mine", "/account", "/messages", "/help"];
+  const publicPaths = ["/", "/login", "/board", "/post", "/mine", "/account", "/messages", "/help", "/insights"];
   return publicPaths.includes(path) ? path : "/other";
 }
 

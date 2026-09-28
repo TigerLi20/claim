@@ -14,6 +14,7 @@ import PublicProfile from "./pages/PublicProfile";
 import Messages from "./pages/Messages";
 import Chat from "./pages/Chat";
 import Help from "./pages/Help";
+import Insights from "./pages/Insights";
 import LandingPage from "./pages/LandingPage";
 import { useAuth } from "./context/AuthContext";
 import { safeNext } from "./authNavigation";
@@ -21,7 +22,7 @@ import { trackPage } from "./analytics";
 export default function App() {
   const { ready, user } = useAuth(), location = useLocation();
   const [showWelcome, setShowWelcome] = useState(false);
-  useEffect(() => { document.title = `Bruno Sells · ${location.pathname.startsWith("/items/") ? "Item" : location.pathname === "/board" ? "Browse items" : location.pathname === "/mine" ? "My items" : "Campus marketplace"}`; }, [location.pathname]);
+  useEffect(() => { document.title = `Bruno Sells · ${location.pathname.startsWith("/items/") ? "Item" : location.pathname === "/board" ? "Browse items" : location.pathname === "/mine" ? "My items" : location.pathname === "/insights" ? "Insights" : "Campus marketplace"}`; }, [location.pathname]);
   useEffect(() => { trackPage(location.pathname); }, [location.pathname]);
   useEffect(() => { const open = () => setShowWelcome(true); window.addEventListener("show-welcome-guide", open); window.addEventListener("open-welcome-guide", open); return () => { window.removeEventListener("show-welcome-guide", open); window.removeEventListener("open-welcome-guide", open); }; }, []);
   if (!ready) return null;
@@ -30,6 +31,7 @@ export default function App() {
     <Route path="/" element={user ? <Navigate to="/board" replace /> : <LandingPage />} /><Route path="/login" element={user ? <Navigate to={safeNext(new URLSearchParams(location.search).get("next"))} replace /> : <AuthPage />} />
     <Route path="/board" element={<Board />} /><Route path="/post" element={protectedPage(<PostItem />)} /><Route path="/items/:id" element={<ItemDetail />} /><Route path="/mine" element={protectedPage(<MyListings />)} />
     <Route path="/account" element={protectedPage(<Account />)} /><Route path="/users/:id" element={<PublicProfile />} /><Route path="/messages" element={protectedPage(<Messages />)} /><Route path="/chat/:conversationId" element={protectedPage(<Chat />)} /><Route path="/help" element={<Help />} />
+    <Route path="/insights" element={protectedPage(<Insights />)} />
     <Route path="*" element={<Navigate to={user ? "/board" : "/"} replace />} />
   </Routes></div>;
 }

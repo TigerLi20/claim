@@ -35,4 +35,8 @@ export const api = {
   conversationMessages: id => request(`/conversations/${id}/messages`),
   markConversationRead: id => request(`/conversations/${id}/read`, { method: "POST" }),
   getUserProfile: id => request(`/users/${id}`, { auth: false }),
+  trackItemView: () => request("/analytics/item-view", { method: "POST", auth: false }),
+  startSearchSession: id => request("/analytics/search-sessions", { method: "POST", body: { id }, auth: false }),
+  markSearchItemOpened: id => request(`/analytics/search-sessions/${id}/opened`, { method: "POST", auth: false }),
+  analyticsSummary: () => request("/analytics/summary"),
 };

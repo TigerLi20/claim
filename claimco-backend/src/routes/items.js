@@ -75,7 +75,10 @@ router.patch("/:id/status", requireAuth, async (req, res) => {
   if (!row) return res.status(404).json({ error: "Item not found" });
   if (row.seller_id !== req.userId) return res.status(403).json({ error: "Only the seller can change status" });
   if (!["available", "pending", "sold"].includes(req.body.status)) return res.status(400).json({ error: "Invalid status" });
-  await db.prepare("UPDATE items SET status = ? WHERE id = ?").run(req.body.status, row.id);
+  const soldAt = req.body.status === "sold"
+    ? (row.status === "sold" ? row.sold_at : new Date().toISOString().slice(0, 19).replace("T", " "))
+    : null;
+  await db.prepare("UPDATE items SET status = ?, sold_at = ? WHERE id = ?").run(req.body.status, soldAt, row.id);
   res.json(shape(await find(row.id)));
 });
 router.delete("/:id", requireAuth, async (req, res) => {
