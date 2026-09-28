@@ -61,10 +61,10 @@ class SandboxDeliveryProvider extends DeliveryProvider {
     async sendEmail(to, subjectOrCode, text, html) {
         const normalizedEmail = to.toLowerCase();
         const isVerificationCode = typeof subjectOrCode === "string" && /^\d{6}$/.test(subjectOrCode.trim());
-        const subject = isVerificationCode ? "Verify your Bruno Sells email" : (subjectOrCode || "Bruno Sells update");
+        const subject = isVerificationCode ? "Verify your College Hill Market email" : (subjectOrCode || "College Hill Market update");
         const bodyText = isVerificationCode
             ? `Your verification code is: ${subjectOrCode}\n\nThis code expires in 10 minutes.`
-            : (text || "You have a new update on Bruno Sells.");
+            : (text || "You have a new update on College Hill Market.");
         const bodyHtml = isVerificationCode
             ? `
           <h2>Verify Your Email</h2>
@@ -97,7 +97,7 @@ class SandboxDeliveryProvider extends DeliveryProvider {
         // Send via Ethereal
         try {
             const info = await this.transporter.sendMail({
-                from: '"Bruno Sells" <noreply@brunosells.test>',
+                from: '"College Hill Market" <noreply@collegehillmarket.test>',
                 to: normalizedEmail,
                 subject,
                 html: bodyHtml,

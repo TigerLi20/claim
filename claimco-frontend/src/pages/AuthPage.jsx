@@ -205,8 +205,8 @@ export default function AuthPage() {
       <div className="auth-page-shell">
         <header className="auth-header">
           <div className="auth-header-inner">
-            <div className="brand-lockup" aria-label="Bruno Sells home">
-              <span className="brand-word">Bruno <span>Sells</span></span>
+            <div className="brand-lockup" aria-label="College Hill Market home">
+              <span className="brand-word">College Hill <span>Market</span></span>
             </div>
           </div>
         </header>
@@ -291,8 +291,8 @@ export default function AuthPage() {
     <div className="auth-page-shell">
       <header className="auth-header">
         <div className="auth-header-inner">
-          <div className="brand-lockup" aria-label="Bruno Sells home">
-            <span className="brand-word">Bruno <span>Sells</span></span>
+          <div className="brand-lockup" aria-label="College Hill Market home">
+            <span className="brand-word">College Hill <span>Market</span></span>
           </div>
 
           <button
@@ -466,7 +466,7 @@ export default function AuthPage() {
           </form>
 
           <div className="auth-switch">
-            {mode === "login" ? "New to Bruno Sells?" : "Already have an account?"} {" "}
+            {mode === "login" ? "New to College Hill Market?" : "Already have an account?"} {" "}
             <button type="button" onClick={() => updateMode(mode === "login" ? "register" : "login")}>
               {mode === "login" ? "Create an account" : "Sign in"}
             </button>

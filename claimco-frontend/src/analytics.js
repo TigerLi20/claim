@@ -24,7 +24,7 @@ function send(path, name) {
     website: props.website,
     hostname: props.hostname,
     url: path,
-    title: "Bruno Sells",
+    title: "College Hill Market",
     ...(name ? { name } : {}),
   }));
   return true;

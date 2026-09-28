@@ -43,7 +43,7 @@ async function sendDirectMessageEmail({ recipientId, senderId, messageText, conv
 
     return sendMaybe(recipientId, {
         type: "message",
-        subject: `New message from ${senderName} on Bruno Sells`,
+        subject: `New message from ${senderName} on College Hill Market`,
         text: `${senderName} sent you a message: ${preview}${preview.length >= 180 ? "..." : ""}\n\nOpen the app to reply.`,
         html: `
       <h2>New message from ${senderName}</h2>

@@ -20,9 +20,9 @@ class ProductionDeliveryProvider extends DeliveryProvider {
     async sendEmail(to, subjectOrCode, text, html) {
         const configuredFrom = process.env.EMAIL_FROM || "onboarding@resend.dev";
         const fromAddress = configuredFrom.match(/<([^<>]+)>/)?.[1] || configuredFrom;
-        const from = `Bruno Sells <${fromAddress}>`;
+        const from = `College Hill Market <${fromAddress}>`;
         const isVerificationCode = typeof subjectOrCode === "string" && /^\d{6}$/.test(subjectOrCode.trim());
-        const subject = isVerificationCode ? "Verify your Bruno Sells email" : (subjectOrCode || "Bruno Sells update");
+        const subject = isVerificationCode ? "Verify your College Hill Market email" : (subjectOrCode || "College Hill Market update");
 
         const finalHtml = isVerificationCode
             ? `
@@ -32,11 +32,11 @@ class ProductionDeliveryProvider extends DeliveryProvider {
                 <p>This code expires in 10 minutes.</p>
                 <p>If you didn't request this, please ignore this email.</p>
             `
-            : (html || `<p>${text || "You have a new update on Bruno Sells."}</p>`);
+            : (html || `<p>${text || "You have a new update on College Hill Market."}</p>`);
 
         const finalText = isVerificationCode
             ? `Your verification code is: ${subjectOrCode}\n\nThis code expires in 10 minutes.`
-            : (text || "You have a new update on Bruno Sells.");
+            : (text || "You have a new update on College Hill Market.");
 
         try {
             console.log("Attempting to send the email via Resend to:", to);

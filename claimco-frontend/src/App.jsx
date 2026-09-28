@@ -22,7 +22,7 @@ import { trackPage } from "./analytics";
 export default function App() {
   const { ready, user } = useAuth(), location = useLocation();
   const [showWelcome, setShowWelcome] = useState(false);
-  useEffect(() => { document.title = `Bruno Sells · ${location.pathname.startsWith("/items/") ? "Item" : location.pathname === "/board" ? "Browse items" : location.pathname === "/mine" ? "My items" : location.pathname === "/insights" ? "Insights" : "Campus marketplace"}`; }, [location.pathname]);
+  useEffect(() => { document.title = `College Hill Market · ${location.pathname.startsWith("/items/") ? "Item" : location.pathname === "/board" ? "Browse items" : location.pathname === "/mine" ? "My items" : location.pathname === "/insights" ? "Insights" : "Campus marketplace"}`; }, [location.pathname]);
   useEffect(() => { trackPage(location.pathname); }, [location.pathname]);
   useEffect(() => { const open = () => setShowWelcome(true); window.addEventListener("show-welcome-guide", open); window.addEventListener("open-welcome-guide", open); return () => { window.removeEventListener("show-welcome-guide", open); window.removeEventListener("open-welcome-guide", open); }; }, []);
   if (!ready) return null;

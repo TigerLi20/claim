@@ -1,6 +1,6 @@
-# Bruno Sells backend
+# College Hill Market backend
 
-Bruno Sells is an independent item marketplace for verified students near Brown. It is not affiliated with Brown University. Buyers and sellers coordinate through item-specific chat and handle payment and handoff directly.
+College Hill Market is an independent item marketplace for verified students near Brown. It is not affiliated with Brown University. Buyers and sellers coordinate through item-specific chat and handle payment and handoff directly.
 
 Run `npm install`, copy `.env.example` to `.env`, set `JWT_SECRET`, and run `npm start`. SQLite is used locally unless `DATABASE_URL` points to PostgreSQL. Cloudinary is optional; image data URLs are the fallback. Registration uses `approved_domains`, seeded with `brown.edu`. Email code authentication remains.
 

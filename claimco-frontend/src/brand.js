@@ -1,3 +1,3 @@
 export const BRAND = {
-    platform: "Bruno Sells",
+    platform: "College Hill Market",
 };

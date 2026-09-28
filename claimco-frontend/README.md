@@ -1,4 +1,4 @@
-# Bruno Sells frontend
+# College Hill Market frontend
 
 A single purpose item marketplace for verified Brown and RISD students in Providence, independent of both schools.
 

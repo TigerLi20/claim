@@ -134,7 +134,7 @@ export default function Account() {
                         <input type="text" placeholder="e.g. Graphic Design or Computer Science" maxLength={100} value={form.concentration} onChange={(e) => setForm({ ...form, concentration: e.target.value })} />
                         <label>About me</label>
                         <textarea
-                            placeholder="A short introduction for the Bruno Sells community"
+                            placeholder="A short introduction for the College Hill Market community"
                             maxLength={500}
                             value={form.aboutMe}
                             onChange={(e) => setForm({ ...form, aboutMe: e.target.value })}

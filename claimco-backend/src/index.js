@@ -95,7 +95,7 @@ Promise.resolve(db.ready).then(async () => {
   setInterval(() => rateLimiter.cleanup(), 60 * 60 * 1000);
 
   httpServer.listen(PORT, () => {
-    console.log(`Bruno Sells backend listening on port ${PORT}`);
+    console.log(`College Hill Market backend listening on port ${PORT}`);
   });
 }).catch(() => {
   process.exit(1);

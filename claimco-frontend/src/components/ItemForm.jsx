@@ -14,7 +14,7 @@ export default function ItemForm({ initial = {}, onSave, buttonText = "Post item
     <label htmlFor="item-category">Category</label><select id="item-category" value={form.category} onChange={event => update("category", event.target.value)} required><option value="">Choose a category</option>{ITEM_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}</select>
     <label htmlFor="item-condition">Condition</label><select id="item-condition" value={form.condition} onChange={event => update("condition", event.target.value)}><option value="new">New</option><option value="like-new">Like new</option><option value="used">Used</option></select>
     <label>Photos (up to 3)</label><ImagePicker images={form.images} onChange={(images, message) => { update("images", images); if (message) setError(message); }} />
-    <p>Arrange payment and handoff directly with the buyer in chat. Bruno Sells does not process payments.</p>
+    <p>Arrange payment and handoff directly with the buyer in chat. College Hill Market does not process payments.</p>
     <button className="btn btn-complete" disabled={busy}>{busy ? "Saving…" : buttonText}</button>
   </form>;
 }

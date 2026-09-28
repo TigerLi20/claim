@@ -22,8 +22,8 @@ test("Production delivery provider uses Resend and does not trigger allowlist by
             emails: {
                 send: async (payload) => {
                     called.sent = true;
-                    assert.equal(payload.from, "Bruno Sells <verify@example.com>");
-                    assert.equal(payload.subject, "Verify your Bruno Sells email");
+                    assert.equal(payload.from, "College Hill Market <verify@example.com>");
+                    assert.equal(payload.subject, "Verify your College Hill Market email");
                     assert.equal(payload.to, "student@example.com");
                     return { id: "test-email-id" };
                 }
