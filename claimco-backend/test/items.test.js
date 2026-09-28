@@ -31,6 +31,13 @@ test("listing CRUD, seller controls, and item scoped chat", async () => {
     const [createdStatus, first] = await request(seller, "/items", "POST", payload); assert.equal(createdStatus, 201); assert.equal(first.images.length, 1);
     assert.equal((await request(seller, "/items", "POST", { ...payload, images: Array(4).fill(payload.images[0]) }))[0], 400);
     const [, second] = await request(seller, "/items", "POST", { ...payload, title:"Second lamp" });
+    const [artStatus, artItem] = await request(seller, "/items", "POST", { ...payload, title:"Handmade print", category:"art", images:[] });
+    assert.equal(artStatus, 201);
+    assert.equal(artItem.category, "art");
+    const [otherStatus] = await request(seller, "/items", "POST", { ...payload, title:"Miscellaneous find", category:"other", images:[] });
+    assert.equal(otherStatus, 201);
+    assert.equal((await request(null, "/items?category=art"))[1].map(item => item.id).includes(artItem.id), true);
+    assert.equal((await request(null, "/items?category=other"))[1].length, 1);
     const [, browse] = await request(buyer, "/items?category=home&search=desk"); assert.equal(browse.length, 1);
     assert.equal((await request(null, "/items?category=home&search=desk"))[1].length, 1);
     assert.equal((await request(null, `/items/${first.id}`))[1].title, "Desk lamp");

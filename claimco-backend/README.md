@@ -16,6 +16,6 @@ Public read API: `GET /items?category=&search=`, `GET /items/:id`, and `GET /use
 
 Authenticated API: `POST /items`, `PATCH /items/:id`, `DELETE /items/:id`, `PATCH /items/:id/status`, `POST /items/:id/interest`, `GET /items/mine/listings`, `GET /items/mine/inquiries`, `/conversations`, `GET /auth/me`, and `PATCH /auth/profile`. Registration and login remain public under `/auth`.
 
-Categories: books, electronics, furniture, clothing, home, other. Conditions: new, like-new, used. Statuses: available, pending, sold. Images are limited to three.
+Categories: books, electronics, furniture, clothing, home, art (Art & Unique Finds), other. Conditions: new, like-new, used. Statuses: available, pending, sold. Images are limited to three.
 
 The migration removes old task and tutoring records and their user-pair chats because those chats have no reliable item association. Back up the production database before first deployment if those records need archival.

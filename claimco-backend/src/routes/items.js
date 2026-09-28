@@ -6,7 +6,7 @@ const { prepareImageAssets, deleteImageAssets } = require("../lib/imageAssets");
 const { getConversationId } = require("../lib/conversations");
 
 const router = express.Router();
-const categories = ["books", "electronics", "furniture", "clothing", "home", "other"];
+const categories = ["books", "electronics", "furniture", "clothing", "home", "art", "other"];
 const conditions = ["new", "like-new", "used"];
 const parse = (value) => { try { return JSON.parse(value || "[]"); } catch { return []; } };
 const shape = (row) => ({
