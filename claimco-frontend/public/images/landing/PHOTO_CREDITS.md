@@ -1,10 +1,10 @@
 # Landing page photo credits
 
-These seven photos are used in the home page gallery under the [Unsplash License](https://unsplash.com/license). The two Providence images are marked below; the remaining photos illustrate the kinds of items people can find or sell, and were photographed elsewhere.
+These seven photos are used in the home page gallery under the [Unsplash License](https://unsplash.com/license). The two Providence images are marked below; the other photos illustrate the kinds of items people can find or sell.
 
 | Local file | Photographer | Source | Subject |
 | --- | --- | --- | --- |
-| `clothes-shopping.jpg` | Luba Glazunova | [Unsplash photo](https://unsplash.com/photos/a-woman-browsing-colorful-clothes-on-a-rack-2ETxtH6Ti2M) | Secondhand clothing in Berlin |
+| `thrift-shopper.jpg` | Kiko Camaclang | [Unsplash photo](https://unsplash.com/photos/woman-browsing-clothes-at-a-thrift-store-q58p3oxqY0Q) | Shopper browsing secondhand clothing |
 | `vintage-book.jpg` | Florencia Viadana | [Unsplash photo](https://unsplash.com/photos/person-holding-orange-and-black-book-bXUTGOOOr50) | Secondhand books in Amsterdam |
 | `providence-skyline.jpg` | Rafael Rodrigues | [Unsplash photo](https://unsplash.com/photos/a-city-skyline-with-tall-buildings-and-a-clock-tower-UlskW1QgwMw) | Providence skyline |
 | `vintage-room.jpg` | Fujiphilm | [Unsplash photo](https://unsplash.com/photos/modern-living-room-with-colorful-wall-art-and-vintage-furniture-tpHDuQxF_tE) | Vintage furniture and home goods |

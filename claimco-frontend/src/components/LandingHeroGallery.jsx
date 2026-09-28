@@ -3,11 +3,11 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 const photos = [
   {
-    src: "/images/landing/clothes-shopping.jpg",
-    alt: "Shoppers browsing a colorful rack of secondhand clothing",
+    src: "/images/landing/thrift-shopper.jpg",
+    alt: "A shopper browsing clothing racks in a thrift store",
     label: "Find your next favorite",
-    photographer: "Luba Glazunova",
-    source: "https://unsplash.com/photos/a-woman-browsing-colorful-clothes-on-a-rack-2ETxtH6Ti2M",
+    photographer: "Kiko Camaclang",
+    source: "https://unsplash.com/photos/woman-browsing-clothes-at-a-thrift-store-q58p3oxqY0Q",
   },
   {
     src: "/images/landing/vintage-book.jpg",
