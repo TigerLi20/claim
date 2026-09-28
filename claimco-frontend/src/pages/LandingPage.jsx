@@ -1,5 +1,6 @@
 import { ArrowRight, MessageCircle, ShieldCheck, ShoppingBag } from "lucide-react";
 import { Link } from "react-router-dom";
+import LandingHeroGallery from "../components/LandingHeroGallery";
 
 const categories = [
   { label: "Clothing", id: "clothing" }, { label: "Books", id: "books" },
@@ -16,7 +17,7 @@ export default function LandingPage() {
     <main>
       <section className="landing-hero landing-wrap">
         <div className="landing-hero-copy"><div className="landing-eyebrow">THE STUDENT MARKETPLACE IN PROVIDENCE</div><h1>Find your<br /><em>next favorite.</em></h1><p>Good things deserve a second life. Shop and sell clothes, books, furniture, and more with verified Brown and RISD students nearby.</p><div className="landing-ctas"><Link className="landing-btn landing-btn-primary" to="/board">Explore items <ArrowRight size={18} /></Link><Link className="landing-btn landing-btn-ghost" to="/post">Start selling</Link></div><div className="landing-note"><ShieldCheck size={17} /> Brown or RISD email required to message or sell</div></div>
-        <div className="landing-hero-image" role="img" aria-label="Secondhand books, clothing, lamp, camera and headphones"><div className="landing-hero-sticker">Preloved finds.<br />Fresh stories.</div></div>
+        <LandingHeroGallery />
       </section>
       <section className="landing-category-section landing-wrap"><div className="landing-section-head"><div><div className="landing-eyebrow">A LITTLE BIT OF EVERYTHING</div><h2>Find your kind of thing.</h2></div><Link to="/board">Explore all <ArrowRight size={17} /></Link></div><div className="landing-categories">{categories.map((category, index) => <Link className={`landing-category landing-category-${index + 1}`} key={category.id || "all"} to={category.id ? `/board?category=${category.id}` : "/board"}><span>{category.label}</span><ArrowRight size={18} /></Link>)}</div></section>
       <section className="landing-how"><div className="landing-wrap"><div className="landing-section-head"><div><div className="landing-eyebrow">HOW BRUNO SELLS WORKS</div><h2>From listing to new home.</h2></div></div><div className="landing-steps"><article><ShoppingBag size={25} /><span>01</span><h3>Discover or list</h3><p>Browse local finds or post your own item with a price and up to three photos.</p></article><article><MessageCircle size={25} /><span>02</span><h3>Start a conversation</h3><p>Ask questions and arrange the details in a chat dedicated to that item.</p></article><article><ShieldCheck size={25} /><span>03</span><h3>Meet up locally</h3><p>Choose a handoff and pay each other directly. Sellers mark items sold.</p></article></div></div></section>

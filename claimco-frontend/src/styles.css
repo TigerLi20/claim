@@ -58,8 +58,19 @@ label{display:block;color:#2f3337;font-size:13px;font-weight:800;margin-bottom:8
 .landing-ctas{display:flex;flex-wrap:wrap;gap:10px}
 .landing-ctas .landing-btn{min-height:52px;padding:15px 21px}
 .landing-note{display:flex;align-items:center;gap:8px;margin-top:24px;color:#767a7e;font-size:13px;font-weight:600}
-.landing-hero-image{height:510px;position:relative;border-radius:18px;background:#f2eee6 url('/images/marketplace-hero.jpg') center/cover no-repeat}
-.landing-hero-sticker{position:absolute;right:-12px;bottom:24px;width:166px;height:166px;border-radius:50%;background:#e9593e;color:white;display:flex;align-items:center;justify-content:center;text-align:center;transform:rotate(11deg);font-family:Manrope,sans-serif;font-size:20px;font-weight:800;line-height:1.15;box-shadow:0 8px 22px #0002}
+.landing-hero-gallery{height:510px;position:relative;overflow:hidden;border-radius:18px;background:#ede8df;color:#fff;isolation:isolate}
+.landing-hero-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.landing-hero-photo-shade{position:absolute;inset:0;background:linear-gradient(transparent 52%,rgba(0,0,0,.7))}
+.landing-hero-photo-info{position:absolute;left:24px;right:24px;bottom:66px;display:flex;flex-direction:column;align-items:flex-start;gap:5px;text-shadow:0 1px 8px #0008}
+.landing-hero-photo-label{font:800 clamp(20px,2.2vw,29px) Manrope,sans-serif;letter-spacing:-.04em}
+.landing-hero-photo-info a{color:#fff;font-size:11px;font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.landing-hero-gallery-controls{position:absolute;left:24px;right:24px;bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.landing-hero-gallery-dots,.landing-hero-gallery-arrows{display:flex;align-items:center;gap:7px}
+.landing-hero-gallery-dots button{width:8px;height:8px;padding:0;border:0;border-radius:50%;background:#ffffff80;cursor:pointer;transition:width .2s,background .2s}
+.landing-hero-gallery-dots button.is-active{width:23px;border-radius:8px;background:#fff}
+.landing-hero-gallery-arrows button{width:32px;height:32px;padding:0;display:grid;place-items:center;border:1px solid #ffffff9c;border-radius:50%;background:#0005;color:#fff;cursor:pointer}
+.landing-hero-gallery-arrows button:hover{background:#0009}
+.landing-hero-gallery button:focus-visible,.landing-hero-photo-info a:focus-visible{outline:3px solid #fff;outline-offset:3px}
 .landing-section-head{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:28px}
 .landing-section-head h2{font-size:clamp(30px,3vw,42px);margin:8px 0 0}
 .landing-section-head>a{display:flex;align-items:center;gap:6px;font-weight:800;font-size:14px}
@@ -290,7 +301,7 @@ label{display:block;color:#2f3337;font-size:13px;font-weight:800;margin-bottom:8
 @media(max-width:900px){
   .item-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
   .landing-hero{gap:25px}
-  .landing-hero-image{height:430px}
+  .landing-hero-gallery{height:430px}
   .detail-layout{gap:25px}
 }
 @media(max-width:700px){
@@ -304,8 +315,7 @@ label{display:block;color:#2f3337;font-size:13px;font-weight:800;margin-bottom:8
   .landing-hero-copy{padding:0}
   .landing-hero h1{font-size:clamp(48px,12vw,68px)}
   .landing-hero-copy>p{font-size:16px}
-  .landing-hero-image{height:365px}
-  .landing-hero-sticker{width:125px;height:125px;font-size:15px;right:10px;bottom:10px}
+  .landing-hero-gallery{height:365px}
   .landing-categories{grid-template-columns:repeat(2,1fr)}
   .landing-category{min-height:125px;font-size:20px}
   .landing-category-section{padding-bottom:70px}
