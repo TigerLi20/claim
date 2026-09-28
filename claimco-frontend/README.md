@@ -1,6 +1,6 @@
 # Bruno Sells frontend
 
-A single purpose item marketplace for verified students near Brown, independent of Brown University.
+A single purpose item marketplace for verified Brown and RISD students in Providence, independent of both schools.
 
 Run `npm install` and `npm run dev` locally. Build with `npm run build`. Set `VITE_API_BASE` when the API is on another origin.
 

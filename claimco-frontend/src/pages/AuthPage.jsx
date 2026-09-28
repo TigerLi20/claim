@@ -4,99 +4,6 @@ import { useAuth } from "../context/AuthContext";
 import { safeNext } from "../authNavigation";
 import { trackEvent } from "../analytics";
 
-const CONCENTRATIONS = [
-  "Africana Studies",
-  "American Studies",
-  "Anthropology",
-  "Applied Mathematics",
-  "Applied Mathematics-Biology",
-  "Applied Mathematics-Computer Science",
-  "Applied Mathematics-Economics",
-  "Archaeology and the Ancient World",
-  "Architecture",
-  "Astronomy",
-  "Behavioral Decision Sciences",
-  "Biochemistry & Molecular Biology",
-  "Biology",
-  "Biomedical Engineering",
-  "Biophysics",
-  "Chemical Engineering",
-  "Chemical Physics",
-  "Chemistry",
-  "Classics",
-  "Cognitive Neuroscience",
-  "Cognitive Science",
-  "Comparative Literature",
-  "Computational Biology",
-  "Computational Chemistry and Chemical Physics",
-  "Computational Neuroscience",
-  "Computer Engineering",
-  "Computer Science",
-  "Computer Science-Economics",
-  "Contemplative Studies",
-  "Critical Native American and Indigenous Studies",
-  "Design Engineering",
-  "Early Modern World",
-  "Earth and Planetary Science",
-  "Earth, Climate, and Biology",
-  "East Asian Studies",
-  "Economics",
-  "Education Studies",
-  "Egyptology and Assyriology",
-  "Electrical Engineering",
-  "Engineering",
-  "Engineering and Physics",
-  "English",
-  "Environmental Engineering",
-  "Environmental Sciences and Studies",
-  "Ethnic Studies",
-  "French and Francophone Studies",
-  "Gender and Sexuality Studies",
-  "Geochemistry and Environmental Chemistry",
-  "Geophysics and Climate Physics",
-  "German Studies",
-  "Graduate School",
-  "Health & Human Biology",
-  "Hispanic Literatures and Cultures",
-  "History",
-  "History of Art and Architecture",
-  "Independent Concentration",
-  "International and Public Affairs",
-  "Italian Studies",
-  "Judaic Studies",
-  "Latin American and Caribbean Studies",
-  "Linguistics",
-  "Literary Arts",
-  "Materials Engineering",
-  "Mathematics",
-  "Mathematics-Computer Science",
-  "Mathematics-Economics",
-  "Mechanical Engineering",
-  "Medieval Cultures",
-  "Middle East Studies",
-  "Modern Culture and Media",
-  "Music",
-  "Neuroscience",
-  "Philosophy",
-  "Physics",
-  "Physics and Philosophy",
-  "Political Science",
-  "Portuguese and Brazilian Studies",
-  "Psychology",
-  "Public Health",
-  "Religious Studies",
-  "School of Professional Studies",
-  "Science, Technology, and Society",
-  "Slavic Studies",
-  "Social Analysis and Research",
-  "Sociology",
-  "South Asian Studies",
-  "Statistics",
-  "Theatre Arts and Performance Studies",
-  "The Warren Alpert Medical School",
-  "Urban Studies",
-  "Visual Art",
-];
 
 export default function AuthPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -168,9 +75,9 @@ export default function AuthPage() {
     setError("");
     setBusy(true);
     try {
-      // Validate concentration
+      // Both Brown and RISD students can enter their own area of study.
       if (!registerForm.concentration) {
-        throw new Error("Please select a concentration");
+        throw new Error("Please enter your major or area of study");
       }
 
       // Validate phone number format (basic)
@@ -247,7 +154,7 @@ export default function AuthPage() {
     setBusy(true);
     try {
       if (!loginForm.email) {
-        throw new Error("Please enter your Brown email");
+        throw new Error("Please enter your Brown or RISD email");
       }
 
       await requestLoginCode(loginForm.email);
@@ -280,7 +187,7 @@ export default function AuthPage() {
     setBusy(true);
     try {
       if (!loginForm.email || !loginForm.code) {
-        throw new Error("Please enter your Brown email and the 6-digit verification code");
+        throw new Error("Please enter your Brown or RISD email and the 6-digit verification code");
       }
 
       await login({ email: loginForm.email, code: loginForm.code });
@@ -371,7 +278,7 @@ export default function AuthPage() {
             </div>
             <div className="auth-trust-item">
               <strong>Verified</strong>
-              <span>fellow classmates</span>
+              <span>nearby students</span>
             </div>
           </div>
         </footer>
@@ -415,8 +322,8 @@ export default function AuthPage() {
             <h1>{mode === "login" ? "Welcome back" : "Create your account"}</h1>
             <p>
               {mode === "login"
-                ? "Use your Brown email and the 6-digit code we send you."
-                : "Takes under a minute. Campus email verification required."}
+                ? "Use your Brown or RISD email and the 6-digit code we send you."
+                : "Join with your Brown or RISD email. Verification is required."}
             </p>
           </div>
 
@@ -439,26 +346,26 @@ export default function AuthPage() {
 
             {mode === "login" ? (
               <div className="field-group">
-                <label htmlFor="auth-email">Brown email</label>
+                <label htmlFor="auth-email">Brown or RISD email</label>
                 <input
                   id="auth-email"
                   type="email"
                   value={loginForm.email}
                   onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
-                  placeholder="firstname_lastname@brown.edu"
+                  placeholder="you@brown.edu or you@risd.edu"
                   required
                   autoComplete="email"
                 />
               </div>
             ) : (
               <div className="field-group">
-                <label htmlFor="auth-email">Brown email</label>
+                <label htmlFor="auth-email">Brown or RISD email</label>
                 <input
                   id="auth-email"
                   type="email"
                   value={registerForm.email}
                   onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
-                  placeholder="firstname_lastname@brown.edu"
+                  placeholder="you@brown.edu or you@risd.edu"
                   required
                   autoComplete="email"
                 />
@@ -498,20 +405,16 @@ export default function AuthPage() {
                   </div>
 
                   <div className="field-group">
-                    <label htmlFor="auth-concentration">Concentration</label>
-                    <select
+                    <label htmlFor="auth-concentration">Major or area of study</label>
+                    <input
                       id="auth-concentration"
+                      type="text"
                       value={registerForm.concentration}
                       onChange={(e) => setRegisterForm({ ...registerForm, concentration: e.target.value })}
+                      placeholder="e.g. Graphic Design or Computer Science"
+                      maxLength={100}
                       required
-                    >
-                      <option value="">Select a concentration</option>
-                      {CONCENTRATIONS.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 </div>
               </>
@@ -583,7 +486,7 @@ export default function AuthPage() {
           </div>
           <div className="auth-trust-item">
             <strong>Verified</strong>
-            <span>fellow classmates</span>
+            <span>nearby students</span>
           </div>
         </div>
       </footer>

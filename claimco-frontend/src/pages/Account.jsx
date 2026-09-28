@@ -130,8 +130,8 @@ export default function Account() {
                         <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
                         <label>Year</label>
                         <input type="text" placeholder="e.g. Class of 2028" value={form.year} onChange={(e) => setForm({ ...form, year: e.target.value })} />
-                        <label>Concentration</label>
-                        <input type="text" placeholder="e.g. Applied Mathematics" value={form.concentration} onChange={(e) => setForm({ ...form, concentration: e.target.value })} />
+                        <label>Major or area of study</label>
+                        <input type="text" placeholder="e.g. Graphic Design or Computer Science" maxLength={100} value={form.concentration} onChange={(e) => setForm({ ...form, concentration: e.target.value })} />
                         <label>About me</label>
                         <textarea
                             placeholder="A short introduction for the Bruno Sells community"
