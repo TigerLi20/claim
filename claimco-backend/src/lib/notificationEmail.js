@@ -40,16 +40,19 @@ async function sendDirectMessageEmail({ recipientId, senderId, messageText, conv
     const sender = await db.prepare("SELECT name FROM users WHERE id = ?").get(senderId);
     const senderName = sender?.name || "Someone";
     const preview = String(messageText).trim().slice(0, 180);
+    const escapeHtml = value => String(value).replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+    const safeName = escapeHtml(senderName);
+    const safePreview = escapeHtml(preview);
 
     return sendMaybe(recipientId, {
         type: "message",
         subject: `New message from ${senderName} on College Hill Market`,
         text: `${senderName} sent you a message: ${preview}${preview.length >= 180 ? "..." : ""}\n\nOpen the app to reply.`,
         html: `
-      <h2>New message from ${senderName}</h2>
-      <p>${senderName} sent you a message:</p>
-      <blockquote>${preview}${preview.length >= 180 ? "..." : ""}</blockquote>
-      <p><a href="${process.env.APP_URL || "https://claimforcampus.com"}/messages/${conversationId}">Open the conversation</a></p>
+      <h2>New message from ${safeName}</h2>
+      <p>${safeName} sent you a message:</p>
+      <blockquote>${safePreview}${preview.length >= 180 ? "..." : ""}</blockquote>
+      <p><a href="${process.env.APP_URL || "https://claimforcampus.com"}/chat/${conversationId}">Open the conversation</a></p>
     `,
         force: false,
     });

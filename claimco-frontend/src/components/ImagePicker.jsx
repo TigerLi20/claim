@@ -1,4 +1,6 @@
 import { useRef } from "react";
+import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
+import { Capacitor } from "@capacitor/core";
 
 const MAX_IMAGES = 3;
 const MAX_OUTPUT_BYTES = 600 * 1024;
@@ -47,6 +49,18 @@ export default function ImagePicker({ images, onChange }) {
         }
     }
 
+    async function pickNativeImage() {
+        try {
+            const photo = await Camera.getPhoto({ resultType: CameraResultType.DataUrl, source: CameraSource.Prompt, quality: 85 });
+            if (!photo.dataUrl) return;
+            const blob = await (await fetch(photo.dataUrl)).blob();
+            const compressed = await compressImage(new File([blob], "listing.jpg", { type: blob.type || "image/jpeg" }));
+            onChange([...images, compressed], "");
+        } catch (error) {
+            if (!String(error.message).toLowerCase().includes("cancel")) onChange(images, error.message);
+        }
+    }
+
     return (
         <div className="image-picker">
             <div className="image-picker-grid">
@@ -58,7 +72,7 @@ export default function ImagePicker({ images, onChange }) {
                 ))}
             </div>
             {images.length < MAX_IMAGES && (
-                <button className="image-picker-add" type="button" onClick={() => inputRef.current?.click()}>
+                <button className="image-picker-add" type="button" onClick={() => Capacitor.isNativePlatform() ? pickNativeImage() : inputRef.current?.click()}>
                     Add pictures ({images.length}/3)
                 </button>
             )}

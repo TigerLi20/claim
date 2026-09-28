@@ -56,6 +56,27 @@ router.get("/me", requireAuth, async (req, res) => {
   res.json({ user: publicUser(user) });
 });
 
+router.delete("/me", requireAuth, async (req, res) => {
+  const user = await db.prepare("SELECT profile_image_public_id FROM users WHERE id = ?").get(req.userId);
+  const listings = await db.prepare("SELECT image_public_ids_json FROM items WHERE seller_id = ?").all(req.userId);
+  const imageIds = [user?.profile_image_public_id];
+  for (const listing of listings) {
+    try { imageIds.push(...JSON.parse(listing.image_public_ids_json || "[]")); } catch { /* ignore old malformed assets */ }
+  }
+  await db.transaction(async (tx) => {
+    await tx.prepare("DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE user_a_id = ? OR user_b_id = ? OR item_id IN (SELECT id FROM items WHERE seller_id = ?))").run(req.userId, req.userId, req.userId);
+    await tx.prepare("DELETE FROM conversations WHERE user_a_id = ? OR user_b_id = ? OR item_id IN (SELECT id FROM items WHERE seller_id = ?)").run(req.userId, req.userId, req.userId);
+    await tx.prepare("DELETE FROM reports WHERE reporter_id = ?").run(req.userId);
+    await tx.prepare("DELETE FROM user_blocks WHERE blocker_id = ? OR blocked_id = ?").run(req.userId, req.userId);
+    await tx.prepare("DELETE FROM device_tokens WHERE user_id = ?").run(req.userId);
+    await tx.prepare("DELETE FROM verification_codes WHERE pending_user_id = ?").run(req.userId);
+    await tx.prepare("DELETE FROM items WHERE seller_id = ?").run(req.userId);
+    await tx.prepare("DELETE FROM users WHERE id = ?").run(req.userId);
+  });
+  await deleteImageAssets(imageIds);
+  res.json({ ok: true });
+});
+
 router.patch("/profile", requireAuth, upload.single("profileImage"), async (req, res) => {
   const currentUser = await db.prepare("SELECT * FROM users WHERE id = ?").get(req.userId);
   if (!currentUser) return res.status(404).json({ error: "User not found" });

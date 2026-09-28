@@ -2,14 +2,17 @@ const jwt = require("jsonwebtoken");
 const db = require("../db");
 const { canAccessConversation } = require("../lib/conversations");
 const { sendDirectMessageEmail } = require("../lib/notificationEmail");
-const { markUserActive, markUserInactive } = require("../lib/presence");
+const { markUserActive, markUserInactive, shouldSendAwayEmail } = require("../lib/presence");
+const { sendMessagePush } = require("../lib/push");
 
 module.exports = function registerChatSocket(io) {
-    io.use((socket, next) => {
+    io.use(async (socket, next) => {
         const token = socket.handshake.auth?.token;
         if (!token) return next(new Error("unauthorized"));
         try {
             socket.userId = jwt.verify(token, process.env.JWT_SECRET).sub;
+            const user = await db.prepare("SELECT id FROM users WHERE id = ? AND status = 'active'").get(socket.userId);
+            if (!user) return next(new Error("unauthorized"));
             next();
         } catch (error) {
             next(new Error("unauthorized"));
@@ -61,6 +64,10 @@ module.exports = function registerChatSocket(io) {
                         messageText: text,
                         conversationId,
                     });
+                    if (shouldSendAwayEmail(recipientId)) {
+                        const sender = await db.prepare("SELECT name FROM users WHERE id = ?").get(socket.userId);
+                        sendMessagePush({ recipientId, senderName: sender?.name || "Someone", conversationId }).catch(error => console.error("Push delivery failed:", error));
+                    }
                 }
             }
         });

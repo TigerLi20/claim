@@ -1,12 +1,15 @@
-export const API_BASE = (import.meta.env.VITE_API_BASE || "").replace(/\/+$/, "");
+import { Capacitor } from "@capacitor/core";
+import { clearToken, getToken } from "../auth/session";
+export const API_BASE = (Capacitor.isNativePlatform() ? import.meta.env.VITE_MOBILE_API_BASE || "" : import.meta.env.VITE_API_BASE || "").replace(/\/+$/, "");
+if (Capacitor.isNativePlatform() && (!API_BASE.startsWith("https://") || API_BASE.includes("localhost"))) throw new Error("Native builds require VITE_MOBILE_API_BASE with the production HTTPS API URL.");
 async function request(path, { method = "GET", body, auth = true, cache } = {}) {
   const headers = { "Content-Type": "application/json" };
-  const token = localStorage.getItem("claimco_token");
+  const token = getToken();
   if (auth && token) headers.Authorization = `Bearer ${token}`;
   const response = await fetch(`${API_BASE}${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), cache });
   const data = await response.json().catch(() => ({}));
   if (auth && response.status === 401) {
-    localStorage.removeItem("claimco_token");
+    await clearToken();
     localStorage.removeItem("claimco_user");
     window.dispatchEvent(new Event("claimco-auth-expired"));
   }
@@ -39,4 +42,13 @@ export const api = {
   startSearchSession: id => request("/analytics/search-sessions", { method: "POST", body: { id }, auth: false }),
   markSearchItemOpened: id => request(`/analytics/search-sessions/${id}/opened`, { method: "POST", auth: false }),
   analyticsSummary: () => request("/analytics/summary"),
+  report: payload => request("/safety/reports", { method: "POST", body: payload }),
+  blockUser: id => request(`/safety/blocks/${id}`, { method: "PUT" }),
+  unblockUser: id => request(`/safety/blocks/${id}`, { method: "DELETE" }),
+  listBlocks: () => request("/safety/blocks"),
+  deleteAccount: () => request("/auth/me", { method: "DELETE" }),
+  registerPushToken: (token, platform) => request("/devices/push-token", { method: "POST", body: { token, platform } }),
+  removePushToken: token => request("/devices/push-token", { method: "DELETE", body: { token } }),
+  reports: () => request("/safety/reports"),
+  updateReport: (id, status) => request(`/safety/reports/${id}`, { method: "PATCH", body: { status } }),
 };

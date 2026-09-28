@@ -8,6 +8,8 @@ const itemRoutes = require("./routes/items");
 const userRoutes = require("./routes/users");
 const conversationRoutes = require("./routes/conversations");
 const analyticsRoutes = require("./routes/analytics");
+const safetyRoutes = require("./routes/safety");
+const deviceRoutes = require("./routes/devices");
 const http = require("http");
 const { Server } = require("socket.io");
 const registerChatSocket = require("./sockets/chat");
@@ -17,7 +19,7 @@ if (!process.env.JWT_SECRET) {
   process.exit(1);
 }
 
-const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173,http://localhost:5174,http://localhost:3000").split(",").map((origin) => origin.trim()).filter(Boolean);
+const allowedOrigins = [...new Set([...(process.env.CORS_ORIGIN || "http://localhost:5173,http://localhost:5174,http://localhost:3000").split(",").map((origin) => origin.trim()).filter(Boolean), "capacitor://localhost", "http://localhost"])];
 
 const corsOptions = {
   origin: (origin, callback) => {
@@ -43,6 +45,8 @@ app.use("/items", itemRoutes);
 app.use("/users", userRoutes);
 app.use("/conversations", conversationRoutes);
 app.use("/analytics", analyticsRoutes);
+app.use("/safety", safetyRoutes);
+app.use("/devices", deviceRoutes);
 
 app.use((req, res) => res.status(404).json({ error: "Not found" }));
 

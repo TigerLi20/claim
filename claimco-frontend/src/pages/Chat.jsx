@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Send } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import { socket } from "../chat/socket";
 import { useAuth } from "../context/AuthContext";
+import SafetyActions from "../components/SafetyActions";
+import { getToken } from "../auth/session";
 
 export default function Chat() {
     const { conversationId } = useParams();
+    const navigate = useNavigate();
     const { user } = useAuth();
     const [messages, setMessages] = useState([]);
     const [otherUser, setOtherUser] = useState(null);
@@ -27,7 +30,7 @@ export default function Chat() {
         };
 
         refreshConversation();
-        socket.auth = { token: localStorage.getItem("claimco_token") };
+        socket.auth = { token: getToken() };
         function joinConversation() {
             socket.emit("join_conversation", conversationId);
         }
@@ -74,12 +77,13 @@ export default function Chat() {
             <Link className="back-link" to="/messages"><ArrowLeft size={14} /> Back to chats</Link>
             {error && <div className="banner banner-error">{error}</div>}
             {otherUser && <h1 className="chat-heading">{item?.title} · {otherUser.name}</h1>}
+            {otherUser && <SafetyActions userId={otherUser.id} targetType="user" targetId={otherUser.id} onBlocked={() => navigate("/messages", { replace: true })} />}
             {item && <Link to={`/items/${item.id}`}>View item</Link>}
             <div className="chat-room">
                 <div className="chat-messages" ref={messagesRef}>
                     {messages.map((message) => {
                         const isMine = String(message.senderId) === currentUserId;
-                        return <div key={message.id} className={`chat-message ${isMine ? "chat-message-mine" : "chat-message-other"}`}>{message.body}</div>;
+                        return <div key={message.id} className={`chat-message ${isMine ? "chat-message-mine" : "chat-message-other"}`}>{message.body}{!isMine && <SafetyActions userId={otherUser?.id} targetType="message" targetId={message.id} showBlock={false} />}</div>;
                     })}
                 </div>
                 <form className="chat-input" onSubmit={sendMessage}>

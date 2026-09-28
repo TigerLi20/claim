@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { API_BASE, api } from "../api/client";
 import { socket } from "../chat/socket";
+import { clearToken, loadToken, setToken } from "../auth/session";
+import { disableNotifications } from "../mobile/notifications";
 
 const AuthContext = createContext(null);
 let pendingRestore = null;
@@ -32,41 +34,27 @@ export function AuthProvider({ children }) {
   const [pendingEmail, setPendingEmail] = useState(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("claimco_token");
-    const pending = sessionStorage.getItem("claimco_pending_user_id");
-    const pendingEmail_ = sessionStorage.getItem("claimco_pending_email");
-
-    if (pending) {
-      setPendingUserId(pending);
-      setPendingEmail(pendingEmail_);
-      setReady(true);
-      return;
-    }
-
-    if (token && hasUnexpiredSession(token)) {
-      let active = true;
-      restoreUser(token)
-        .then((data) => { if (active) persist(token, data.user); })
-        .catch(() => {
-          if (active) {
-            localStorage.removeItem("claimco_token");
-            localStorage.removeItem("claimco_user");
-            setUser(null);
-          }
-        })
-        .finally(() => { if (active) setReady(true); });
-      return () => { active = false; };
-    }
-    localStorage.removeItem("claimco_token");
-    localStorage.removeItem("claimco_user");
-    setReady(true);
+    let active = true;
+    (async () => {
+      try {
+        const token = await loadToken();
+        const pending = sessionStorage.getItem("claimco_pending_user_id");
+        if (pending) { setPendingUserId(pending); setPendingEmail(sessionStorage.getItem("claimco_pending_email")); return; }
+        if (token && hasUnexpiredSession(token)) {
+          const data = await restoreUser(token);
+          if (active) setUser(data.user);
+        } else { await clearToken(); localStorage.removeItem("claimco_user"); }
+      } catch { await clearToken(); localStorage.removeItem("claimco_user"); if (active) setUser(null); }
+      finally { if (active) setReady(true); }
+    })();
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
     const expireSession = () => {
       socket.disconnect();
       socket.auth = { token: null };
-      localStorage.removeItem("claimco_token");
+      void clearToken();
       localStorage.removeItem("claimco_user");
       setUser(null);
     };
@@ -74,8 +62,8 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener("claimco-auth-expired", expireSession);
   }, []);
 
-  function persist(token, user) {
-    localStorage.setItem("claimco_token", token);
+  async function persist(token, user) {
+    await setToken(token);
     localStorage.setItem("claimco_user", JSON.stringify(user));
     sessionStorage.removeItem("claimco_pending_user_id");
     sessionStorage.removeItem("claimco_pending_email");
@@ -119,7 +107,7 @@ export function AuthProvider({ children }) {
 
   async function verifyEmail(pendingUserId, code) {
     const data = await api.verifyEmail({ pendingUserId, code });
-    persist(data.token, data.user);
+    await persist(data.token, data.user);
     return data.user;
   }
 
@@ -135,7 +123,7 @@ export function AuthProvider({ children }) {
 
   async function login(payload) {
     const data = await api.login(payload);
-    persist(data.token, data.user);
+    await persist(data.token, data.user);
     return data.user;
   }
 
@@ -146,12 +134,13 @@ export function AuthProvider({ children }) {
     return data.user;
   }
 
-  function logout() {
+  async function logout() {
+    await disableNotifications().catch(() => {});
     if (socket.connected) {
       socket.disconnect();
     }
     socket.auth = { token: null };
-    localStorage.removeItem("claimco_token");
+    await clearToken();
     localStorage.removeItem("claimco_user");
     sessionStorage.removeItem("claimco_pending_onboarding");
     sessionStorage.removeItem("claimco_onboarding_choice");
@@ -163,8 +152,10 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
+  async function deleteAccount() { await api.deleteAccount(); await logout(); }
+
   return (
-    <AuthContext.Provider value={{ user, ready, pendingUserId, pendingEmail, register, verifyEmail, resendCode, requestLoginCode, login, updateProfile, logout, clearPending }}>
+    <AuthContext.Provider value={{ user, ready, pendingUserId, pendingEmail, register, verifyEmail, resendCode, requestLoginCode, login, updateProfile, logout, deleteAccount, clearPending }}>
       {children}
     </AuthContext.Provider>
   );

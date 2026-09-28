@@ -42,6 +42,7 @@ function translateSqliteToPostgres(sql) {
 
 function applyReturningId(sql) {
     if (!/^\s*INSERT\s+/i.test(sql) || /\bRETURNING\b/i.test(sql)) return sql;
+    if (/^\s*INSERT\s+INTO\s+(?:user_blocks|device_tokens)\b/i.test(sql)) return sql;
     return `${sql.trim()} RETURNING id`;
 }
 

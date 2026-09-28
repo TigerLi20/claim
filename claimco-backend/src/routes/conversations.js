@@ -13,7 +13,7 @@ router.get("/", requireAuth, async (req, res) => {
     FROM conversations c JOIN items i ON i.id = c.item_id
     JOIN users u ON u.id = CASE WHEN c.user_a_id = ? THEN c.user_b_id ELSE c.user_a_id END
     LEFT JOIN messages m ON m.id = (SELECT id FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC, id DESC LIMIT 1)
-    WHERE c.user_a_id = ? OR c.user_b_id = ? ORDER BY COALESCE(m.created_at, c.created_at) DESC`).all(req.userId, req.userId, req.userId, req.userId, req.userId);
+    WHERE (c.user_a_id = ? OR c.user_b_id = ?) AND NOT EXISTS (SELECT 1 FROM user_blocks b WHERE (b.blocker_id = c.user_a_id AND b.blocked_id = c.user_b_id) OR (b.blocker_id = c.user_b_id AND b.blocked_id = c.user_a_id)) ORDER BY COALESCE(m.created_at, c.created_at) DESC`).all(req.userId, req.userId, req.userId, req.userId, req.userId);
   res.json(rows.map(row => ({ id: row.id, item: { id: row.item_id, title: row.item_title, status: row.item_status }, otherUser: { id: row.other_id, name: row.other_name, year: row.other_year || "", concentration: row.other_concentration || "", profileImage: row.other_profile_image || null }, lastMessage: row.last_message || "No messages yet.", unreadCount: Number(row.unread_count), createdAt: row.last_message_at || row.created_at })));
 });
 router.get("/:id/messages", requireAuth, async (req, res) => {

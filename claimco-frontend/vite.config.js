@@ -14,6 +14,8 @@ export default defineConfig({
       '/users': { target: backendTarget, changeOrigin: true, bypass: bypassSpaDocument },
       '/conversations': { target: backendTarget, changeOrigin: true, bypass: bypassSpaDocument },
       '/analytics': { target: backendTarget, changeOrigin: true, bypass: bypassSpaDocument },
+      '/safety': { target: backendTarget, changeOrigin: true, bypass: bypassSpaDocument },
+      '/devices': { target: backendTarget, changeOrigin: true, bypass: bypassSpaDocument },
       '/socket.io': { target: backendTarget, ws: true, changeOrigin: true, bypass: bypassSpaDocument },
     },
   },

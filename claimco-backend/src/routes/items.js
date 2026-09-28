@@ -4,6 +4,7 @@ const db = require("../db");
 const { requireAuth } = require("../middleware/auth");
 const { prepareImageAssets, deleteImageAssets } = require("../lib/imageAssets");
 const { getConversationId } = require("../lib/conversations");
+const { isBlocked } = require("../lib/blocks");
 
 const router = express.Router();
 const categories = ["books", "electronics", "furniture", "clothing", "home", "art", "other"];
@@ -15,7 +16,7 @@ const shape = (row) => ({
   images: parse(row.images_json), status: row.status, createdAt: row.created_at,
   seller: { id: row.seller_id, name: row.seller_name, year: row.seller_year || "", concentration: row.seller_concentration || "", profileImage: row.seller_image || null },
 });
-const select = `SELECT i.*, u.name AS seller_name, u.year AS seller_year, u.concentration AS seller_concentration, u.profile_image AS seller_image FROM items i JOIN users u ON u.id = i.seller_id`;
+const select = `SELECT i.*, u.name AS seller_name, u.year AS seller_year, u.concentration AS seller_concentration, u.profile_image AS seller_image FROM items i JOIN users u ON u.id = i.seller_id AND u.status = 'active'`;
 function validate(body) {
   const title = typeof body.title === "string" ? body.title.trim() : "";
   const description = typeof body.description === "string" ? body.description.trim() : "";
@@ -95,6 +96,7 @@ router.post("/:id/interest", requireAuth, async (req, res) => {
   const row = await find(req.params.id);
   if (!row) return res.status(404).json({ error: "Item not found" });
   if (row.seller_id === req.userId) return res.status(400).json({ error: "You cannot message yourself" });
+  if (await isBlocked(row.seller_id, req.userId)) return res.status(403).json({ error: "Messaging is unavailable for this seller" });
   const existing = await db.prepare("SELECT id FROM conversations WHERE item_id = ? AND (user_a_id = ? OR user_b_id = ?)").get(row.id, req.userId, req.userId);
   if (row.status === "sold" && !existing) return res.status(409).json({ error: "This item has sold" });
   const conversationId = await getConversationId(row.id, req.userId, row.seller_id);

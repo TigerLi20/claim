@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 *.local
+.env.mobile
+android/app/google-services.json
+ios/App/App/GoogleService-Info.plist
 
 # Editor directories and files
 .vscode/*

@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { Save, Upload } from "lucide-react";
 import ProfileAvatar from "../components/ProfileAvatar";
 import { useAuth } from "../context/AuthContext";
+import { Link, useNavigate } from "react-router-dom";
+import { api } from "../api/client";
+import { enableNotifications, isNative } from "../mobile/notifications";
+import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
 
 const MAX_PROFILE_IMAGE_BYTES = 600 * 1024;
 const MAX_DIMENSION = 1400;
@@ -31,7 +35,10 @@ function compressImage(file) {
 }
 
 export default function Account() {
-    const { user, updateProfile } = useAuth();
+    const { user, updateProfile, deleteAccount } = useAuth();
+    const navigate = useNavigate();
+    const [blocks, setBlocks] = useState([]);
+    useEffect(() => { api.listBlocks().then(setBlocks).catch(() => {}); }, []);
     const [form, setForm] = useState({ name: user.name, year: user.year || "", concentration: user.concentration || "", aboutMe: user.aboutMe || "" });
     const [profileImage, setProfileImage] = useState(user.profileImage || null);
     const [error, setError] = useState("");
@@ -46,6 +53,22 @@ export default function Account() {
 
     async function handleImage(event) {
         const file = event.target.files?.[0];
+        event.target.value = "";
+        await saveProfileFile(file);
+    }
+
+    async function pickNativeProfileImage() {
+        try {
+            const photo = await Camera.getPhoto({ resultType: CameraResultType.DataUrl, source: CameraSource.Prompt, quality: 85 });
+            if (!photo.dataUrl) return;
+            const blob = await (await fetch(photo.dataUrl)).blob();
+            await saveProfileFile(new File([blob], "profile.jpg", { type: blob.type || "image/jpeg" }));
+        } catch (error) {
+            if (!String(error.message).toLowerCase().includes("cancel")) setError(error.message);
+        }
+    }
+
+    async function saveProfileFile(file) {
         if (!file) return;
         setSaved(false);
         if (!file.type.startsWith("image/")) {
@@ -53,7 +76,6 @@ export default function Account() {
             return;
         }
 
-        event.target.value = "";
         setError("");
         setSaved(false);
         setBusy(true);
@@ -112,7 +134,7 @@ export default function Account() {
             <div className="account-layout">
                 <section className="profile-card">
                     <ProfileAvatar user={{ ...user, profileImage }} />
-                    <button className="btn btn-complete" type="button" disabled={busy} onClick={() => fileInput.current?.click()}>
+                    <button className="btn btn-complete" type="button" disabled={busy} onClick={() => isNative ? pickNativeProfileImage() : fileInput.current?.click()}>
                         <Upload size={15} /> {busy ? "Saving picture…" : "Upload picture"}
                     </button>
                     <button className="restore-default" type="button" disabled={busy || !profileImage} onClick={restoreDefault}>
@@ -146,6 +168,7 @@ export default function Account() {
                         </div>
                     </form>
                 </section>
+                <section className="form-card account-form-card"><h2>Safety and privacy</h2>{isNative && <p><button className="btn btn-secondary" onClick={async () => { try { const enabled = await enableNotifications(); setSaved(enabled); if (!enabled) setError("Enable notifications in your device settings if prompted."); } catch (err) { setError(err.message); } }}>Enable message notifications</button></p>}<p><Link to="/terms">Terms</Link> · <Link to="/privacy">Privacy policy</Link> · <Link to="/delete-account">Deletion details</Link></p><p>Contact <a href="mailto:collegehillmarket1@gmail.com">collegehillmarket1@gmail.com</a> for reports or privacy requests.</p><h3>Blocked people</h3>{blocks.length ? blocks.map(block => <p key={block.id}>{block.name} <button type="button" onClick={async () => { await api.unblockUser(block.id); setBlocks(current => current.filter(entry => entry.id !== block.id)); }}>Unblock</button></p>) : <p>You have not blocked anyone.</p>}<button className="btn btn-cancel" type="button" onClick={async () => { if (!window.confirm("Delete your account and all your listings and chats? This cannot be undone.")) return; if (!window.confirm("Confirm permanent account deletion.")) return; setBusy(true); try { await deleteAccount(); navigate("/", { replace: true }); } catch (err) { setError(err.message); setBusy(false); } }}>Delete account</button></section>
             </div>
         </div>
     );

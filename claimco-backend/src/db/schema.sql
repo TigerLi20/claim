@@ -29,6 +29,23 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, created_at);
+CREATE TABLE IF NOT EXISTS user_blocks (
+  blocker_id TEXT NOT NULL REFERENCES users(id), blocked_id TEXT NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (blocker_id, blocked_id)
+);
+CREATE TABLE IF NOT EXISTS reports (
+  id TEXT PRIMARY KEY, reporter_id TEXT REFERENCES users(id),
+  target_type TEXT NOT NULL CHECK (target_type IN ('user','item','message')),
+  target_id TEXT NOT NULL, reason TEXT NOT NULL, details TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','reviewed','closed')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now')), reviewed_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status, created_at);
+CREATE TABLE IF NOT EXISTS device_tokens (
+  token TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id),
+  platform TEXT NOT NULL CHECK (platform IN ('ios','android')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 CREATE TABLE IF NOT EXISTS verification_codes (
   id TEXT PRIMARY KEY, pending_user_id TEXT NOT NULL REFERENCES users(id),
   destination TEXT NOT NULL, code_hash TEXT NOT NULL, expires_at TEXT NOT NULL,

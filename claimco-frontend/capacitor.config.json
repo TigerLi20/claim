@@ -1,0 +1,14 @@
+{
+  "appId": "com.collegehillmarket.app",
+  "appName": "College Hill Market",
+  "webDir": "dist",
+  "experimental": {
+    "ios": {
+      "spm": {
+        "packageOptions": {
+          "@capacitor-firebase/messaging": { "symlink": true }
+        }
+      }
+    }
+  }
+}

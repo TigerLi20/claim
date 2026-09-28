@@ -1,4 +1,5 @@
 const db = require("../db");
+const { isBlocked } = require("./blocks");
 
 async function getConversationId(itemId, userAId, userBId, database = db) {
     const [firstId, secondId] = [userAId, userBId].sort();
@@ -15,7 +16,10 @@ async function getConversationId(itemId, userAId, userBId, database = db) {
 }
 
 async function canAccessConversation(conversationId, userId, database = db) {
-    return !!await database.prepare("SELECT id FROM conversations WHERE id = ? AND (user_a_id = ? OR user_b_id = ?)").get(conversationId, userId, userId);
+    const row = await database.prepare("SELECT user_a_id, user_b_id FROM conversations WHERE id = ? AND (user_a_id = ? OR user_b_id = ?)").get(conversationId, userId, userId);
+    if (!row || await isBlocked(row.user_a_id, row.user_b_id, database)) return false;
+    const active = await database.prepare("SELECT COUNT(*) AS total FROM users WHERE id IN (?, ?) AND status = 'active'").get(row.user_a_id, row.user_b_id);
+    return Number(active?.total) === 2;
 }
 
 module.exports = { getConversationId, canAccessConversation };

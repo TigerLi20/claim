@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { safeNext } from "../authNavigation";
 import { trackEvent } from "../analytics";
@@ -463,6 +463,7 @@ export default function AuthPage() {
             <button className="auth-submit" type="submit" disabled={busy}>
               {busy ? "Please wait…" : mode === "login" ? (loginForm.codeSent ? "Log in" : "Send login code") : "Create account"}
             </button>
+            {mode === "register" && <p className="auth-spam-hint">By creating an account, you agree to our <Link to="/terms">Terms</Link> and <Link to="/privacy">Privacy policy</Link>.</p>}
           </form>
 
           <div className="auth-switch">

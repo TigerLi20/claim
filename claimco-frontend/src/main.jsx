@@ -5,7 +5,9 @@ import "./styles.css";
 import App from "./App.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { initAnalytics } from "./analytics";
+import { Capacitor } from "@capacitor/core";
 
+if (Capacitor.isNativePlatform()) document.documentElement.classList.add("native-app");
 initAnalytics();
 
 createRoot(document.getElementById("root")).render(
