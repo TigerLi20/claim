@@ -205,9 +205,9 @@ export default function AuthPage() {
       <div className="auth-page-shell">
         <header className="auth-header">
           <div className="auth-header-inner">
-            <div className="brand-lockup" aria-label="College Hill Market home">
+            <Link className="brand-lockup" to="/board" aria-label="Browse items">
               <span className="brand-word">College Hill <span>Market</span></span>
-            </div>
+            </Link>
           </div>
         </header>
 
@@ -291,9 +291,9 @@ export default function AuthPage() {
     <div className="auth-page-shell">
       <header className="auth-header">
         <div className="auth-header-inner">
-          <div className="brand-lockup" aria-label="College Hill Market home">
+          <Link className="brand-lockup" to="/board" aria-label="Browse items">
             <span className="brand-word">College Hill <span>Market</span></span>
-          </div>
+          </Link>
 
           <button
             type="button"

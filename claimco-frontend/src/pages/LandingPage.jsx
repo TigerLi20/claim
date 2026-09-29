@@ -11,7 +11,7 @@ const categories = [
 export default function LandingPage() {
   return <div className="landing-page">
     <header className="landing-header"><div className="landing-wrap landing-nav-wrap">
-      <Link className="landing-logo" to="/">College Hill <span>Market</span></Link>
+      <Link className="landing-logo" to="/board">College Hill <span>Market</span></Link>
       <nav className="landing-nav" aria-label="Main navigation"><Link to="/login">Log in</Link><Link className="landing-btn landing-btn-primary" to="/login?mode=register">Join<span className="landing-join-name"> College Hill Market</span> <ArrowRight size={16} /></Link></nav>
     </div></header>
     <main>
