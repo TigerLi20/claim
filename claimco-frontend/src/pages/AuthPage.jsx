@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Mail } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { safeNext } from "../authNavigation";
 import { trackEvent } from "../analytics";
+
+function CodeDeliveryNotice() {
+  return <div className="auth-delivery-note"><Mail size={20} aria-hidden="true" /><div><strong>Check your Spam or Junk folder, too.</strong><p>If our code lands there, please mark the email as “Not spam” so future codes reach your inbox.</p></div></div>;
+}
 
 
 export default function AuthPage() {
@@ -221,6 +226,7 @@ export default function AuthPage() {
                 We sent a verification code to <strong>{pendingEmail}</strong>. Enter it below to activate your account.
               </p>
             </div>
+            <CodeDeliveryNotice />
 
             {error && <div className="banner banner-error">{error}</div>}
 
@@ -238,7 +244,6 @@ export default function AuthPage() {
                   required
                   autoComplete="off"
                 />
-                <p className="auth-spam-hint">No code yet? Check your spam or junk folder.</p>
               </div>
 
               <div className="auth-inline-row-verify">
@@ -326,6 +331,7 @@ export default function AuthPage() {
                 : "Join with your Brown or RISD email. Verification is required."}
             </p>
           </div>
+          {mode === "login" && loginForm.codeSent && <CodeDeliveryNotice />}
 
           {error && <div className="banner banner-error">{error}</div>}
 
@@ -433,7 +439,6 @@ export default function AuthPage() {
                   placeholder="000000"
                   required
                 />
-                <p className="auth-spam-hint">No code yet? Check your spam or junk folder.</p>
               </div>
             )}
 
