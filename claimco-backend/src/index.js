@@ -17,7 +17,11 @@ if (!process.env.JWT_SECRET) {
   process.exit(1);
 }
 
-const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173,http://localhost:5174,http://localhost:3000").split(",").map((origin) => origin.trim()).filter(Boolean);
+const allowedOrigins = [...new Set([
+  ...(process.env.CORS_ORIGIN || "http://localhost:5173,http://localhost:5174,http://localhost:3000").split(",").map((origin) => origin.trim()).filter(Boolean),
+  "capacitor://localhost",
+  "http://localhost",
+])];
 
 const corsOptions = {
   origin: (origin, callback) => {
