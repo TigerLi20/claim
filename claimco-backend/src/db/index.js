@@ -73,6 +73,9 @@ function createPostgresDb() {
         await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS online_status TEXT NOT NULL DEFAULT 'offline'");
         await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ");
         await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image_public_id TEXT");
+        await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS auto_reply_text TEXT");
+        await pool.query("ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_auto_reply INTEGER NOT NULL DEFAULT 0");
+        await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_one_auto_reply ON messages (conversation_id) WHERE is_auto_reply = 1");
         await pool.query("ALTER TABLE items ADD COLUMN IF NOT EXISTS sold_at TEXT");
         await pool.query("INSERT INTO analytics_meta (id, started_at) VALUES (1, TO_CHAR(NOW() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')) ON CONFLICT (id) DO NOTHING");
         await pool.query("ALTER TABLE users DROP COLUMN IF EXISTS stripe_account_id");
@@ -167,9 +170,12 @@ function setupSqliteDb() {
     for (const column of ["stripe_account_id", "stripe_onboarded"]) {
         if (userColumns.includes(column)) db.exec(`ALTER TABLE users DROP COLUMN ${column}`);
     }
-    for (const [column, definition] of [["year", "TEXT"], ["concentration", "TEXT"], ["about_me", "TEXT"], ["profile_image", "TEXT"], ["profile_image_public_id", "TEXT"], ["school_email", "TEXT"], ["phone_number", "TEXT"], ["email_verified_at", "TEXT"], ["status", "TEXT DEFAULT 'active'"], ["online_status", "TEXT NOT NULL DEFAULT 'offline'"], ["last_seen_at", "TEXT"]]) {
+    for (const [column, definition] of [["year", "TEXT"], ["concentration", "TEXT"], ["about_me", "TEXT"], ["profile_image", "TEXT"], ["profile_image_public_id", "TEXT"], ["school_email", "TEXT"], ["phone_number", "TEXT"], ["email_verified_at", "TEXT"], ["status", "TEXT DEFAULT 'active'"], ["auto_reply_text", "TEXT"], ["online_status", "TEXT NOT NULL DEFAULT 'offline'"], ["last_seen_at", "TEXT"]]) {
         if (!userColumns.includes(column)) db.exec(`ALTER TABLE users ADD COLUMN ${column} ${definition}`);
     }
+    const messageColumns = db.prepare("PRAGMA table_info(messages)").all().map((column) => column.name);
+    if (!messageColumns.includes("is_auto_reply")) db.exec("ALTER TABLE messages ADD COLUMN is_auto_reply INTEGER NOT NULL DEFAULT 0");
+    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_one_auto_reply ON messages (conversation_id) WHERE is_auto_reply = 1");
     const itemColumns = db.prepare("PRAGMA table_info(items)").all().map((column) => column.name);
     if (!itemColumns.includes("sold_at")) db.exec("ALTER TABLE items ADD COLUMN sold_at TEXT");
     db.prepare("INSERT OR IGNORE INTO analytics_meta (id, started_at) VALUES (1, datetime('now'))").run();

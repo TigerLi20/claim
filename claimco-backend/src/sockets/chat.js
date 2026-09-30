@@ -3,6 +3,7 @@ const db = require("../db");
 const { canAccessConversation } = require("../lib/conversations");
 const { sendDirectMessageEmail } = require("../lib/notificationEmail");
 const { markUserActive, markUserInactive } = require("../lib/presence");
+const { createAutoReply } = require("../lib/autoReply");
 
 module.exports = function registerChatSocket(io) {
     io.use((socket, next) => {
@@ -50,6 +51,16 @@ module.exports = function registerChatSocket(io) {
             };
             acknowledge?.({ message });
             socket.to(`conversation:${conversationId}`).emit("new_message", message);
+
+            try {
+                const autoReply = await createAutoReply(conversationId, socket.userId);
+                if (autoReply) {
+                    socket.emit("new_message", autoReply);
+                    socket.to(`conversation:${conversationId}`).emit("new_message", autoReply);
+                }
+            } catch (error) {
+                console.error("Automatic reply failed:", error);
+            }
 
             const conversation = await db.prepare("SELECT user_a_id, user_b_id FROM conversations WHERE id = ?").get(conversationId);
             if (conversation) {

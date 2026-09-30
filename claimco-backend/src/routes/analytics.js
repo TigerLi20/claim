@@ -54,7 +54,7 @@ router.get("/summary", requireAuth, async (req, res) => {
   const itemViews = Number((await db.prepare("SELECT COALESCE(SUM(item_views), 0) AS views FROM analytics_daily WHERE id >= ? AND id < ?").get(month.slice(0, 7) + "-01", nextMonthStart.slice(0, 10))).views);
   const conversationRow = await db.prepare("SELECT COUNT(*) AS count FROM conversations WHERE created_at >= ? AND created_at < ?").get(inquiryStart, nextMonthStart);
   const newConversations = Number(conversationRow.count || 0);
-  const avgRow = await db.prepare("SELECT AVG(message_count) AS average FROM (SELECT COUNT(m.id) AS message_count FROM conversations c LEFT JOIN messages m ON m.conversation_id = c.id WHERE c.created_at >= ? AND c.created_at < ? GROUP BY c.id) AS counts").get(inquiryStart, nextMonthStart);
+  const avgRow = await db.prepare("SELECT AVG(message_count) AS average FROM (SELECT COUNT(m.id) AS message_count FROM conversations c LEFT JOIN messages m ON m.conversation_id = c.id AND m.is_auto_reply = 0 WHERE c.created_at >= ? AND c.created_at < ? GROUP BY c.id) AS counts").get(inquiryStart, nextMonthStart);
 
   res.json({
     period: { month, timezone: "UTC", trackingStartedAt: trackingStart },
