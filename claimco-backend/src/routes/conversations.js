@@ -20,8 +20,8 @@ router.get("/:id/messages", requireAuth, async (req, res) => {
   if (!await canAccessConversation(req.params.id, req.userId)) return res.status(404).json({ error: "Conversation not found" });
   const c = await db.prepare("SELECT c.*, i.title AS item_title, i.status AS item_status FROM conversations c JOIN items i ON i.id = c.item_id WHERE c.id = ?").get(req.params.id);
   const other = await db.prepare("SELECT id, name, year, concentration, profile_image FROM users WHERE id = ?").get(c.user_a_id === req.userId ? c.user_b_id : c.user_a_id);
-  const messages = await db.prepare("SELECT id, conversation_id, sender_id, body, created_at FROM messages WHERE conversation_id = ? ORDER BY created_at, id").all(req.params.id);
-  res.json({ item: { id: c.item_id, title: c.item_title, status: c.item_status }, otherUser: { id: other.id, name: other.name, year: other.year || "", concentration: other.concentration || "", profileImage: other.profile_image || null }, messages: messages.map(m => ({ id: m.id, conversationId: m.conversation_id, senderId: m.sender_id, body: m.body, createdAt: m.created_at })) });
+  const messages = await db.prepare("SELECT id, conversation_id, sender_id, body, is_auto_reply, created_at FROM messages WHERE conversation_id = ? ORDER BY created_at, id").all(req.params.id);
+  res.json({ item: { id: c.item_id, title: c.item_title, status: c.item_status }, otherUser: { id: other.id, name: other.name, year: other.year || "", concentration: other.concentration || "", profileImage: other.profile_image || null }, messages: messages.map(m => ({ id: m.id, conversationId: m.conversation_id, senderId: m.sender_id, body: m.body, isAutoReply: Boolean(m.is_auto_reply), createdAt: m.created_at })) });
 });
 router.post("/:id/read", requireAuth, async (req, res) => {
   if (!await canAccessConversation(req.params.id, req.userId)) return res.status(404).json({ error: "Conversation not found" });
