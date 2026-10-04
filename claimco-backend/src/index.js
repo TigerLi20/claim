@@ -95,10 +95,13 @@ async function cleanupAbandonedPendingUsers() {
     console.log(`[Cleanup] Deleted ${result.changes} abandoned pending users`);
   }
 }
+const { cleanupExpiredListings } = require("./lib/listingCleanup");
 const rateLimiter = require("./lib/rateLimiter");
 
 Promise.resolve(db.ready).then(async () => {
   await cleanupAbandonedPendingUsers();
+  await cleanupExpiredListings().catch(console.error);
+  setInterval(() => cleanupExpiredListings().catch(console.error), 60 * 60 * 1000);
   setInterval(() => cleanupAbandonedPendingUsers().catch(console.error), 10 * 60 * 1000);
   setInterval(() => rateLimiter.cleanup(), 60 * 60 * 1000);
 

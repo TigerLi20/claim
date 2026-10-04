@@ -116,7 +116,8 @@ async function deleteImage(publicId) {
         api_secret: process.env.CLOUDINARY_API_SECRET,
     });
 
-    await cloudinary.uploader.destroy(publicId, { resource_type: "image", invalidate: true });
+    const result = await cloudinary.uploader.destroy(publicId, { resource_type: "image", invalidate: true });
+    if (!["ok", "not found"].includes(result.result)) throw new Error(`Image deletion failed: ${result.result}`);
 }
 
 module.exports = {

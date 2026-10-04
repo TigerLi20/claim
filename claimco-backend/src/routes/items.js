@@ -4,6 +4,7 @@ const db = require("../db");
 const { requireAuth } = require("../middleware/auth");
 const { prepareImageAssets, deleteImageAssets } = require("../lib/imageAssets");
 const { getConversationId } = require("../lib/conversations");
+const { expiryAfterFourMonths } = require("../lib/listingCleanup");
 const { isBlocked } = require("../lib/blocks");
 
 const router = express.Router();
@@ -13,7 +14,7 @@ const parse = (value) => { try { return JSON.parse(value || "[]"); } catch { ret
 const shape = (row) => ({
   id: row.id, sellerId: row.seller_id, title: row.title, description: row.description,
   price: row.price_cents / 100, category: row.category, condition: row.condition,
-  images: parse(row.images_json), status: row.status, createdAt: row.created_at,
+  images: parse(row.images_json), status: row.removed_at ? "removed" : row.status, removedAt: row.removed_at, expiresAt: row.expires_at, createdAt: row.created_at,
   seller: { id: row.seller_id, name: row.seller_name, year: row.seller_year || "", concentration: row.seller_concentration || "", profileImage: row.seller_image || null },
 });
 const select = `SELECT i.*, u.name AS seller_name, u.year AS seller_year, u.concentration AS seller_concentration, u.profile_image AS seller_image FROM items i JOIN users u ON u.id = i.seller_id AND u.status = 'active'`;
@@ -32,7 +33,7 @@ router.get("/", async (req, res) => {
   const category = typeof req.query.category === "string" ? req.query.category : "";
   const search = typeof req.query.search === "string" ? req.query.search.trim().slice(0, 120).toLowerCase() : "";
   if (category && !categories.includes(category)) return res.status(400).json({ error: "Invalid category" });
-  const rows = await db.prepare(`${select} WHERE i.status = 'available' AND (? = '' OR i.category = ?) AND (? = '' OR LOWER(i.title) LIKE ?) ORDER BY i.created_at DESC`).all(category, category, search, `%${search}%`);
+  const rows = await db.prepare(`${select} WHERE i.status = 'available' AND i.removed_at IS NULL AND (? = '' OR i.category = ?) AND (? = '' OR LOWER(i.title) LIKE ?) ORDER BY i.created_at DESC`).all(category, category, search, `%${search}%`);
   res.json(rows.map(shape));
 });
 router.get("/mine/listings", requireAuth, async (req, res) => {
@@ -76,25 +77,28 @@ router.patch("/:id/status", requireAuth, async (req, res) => {
   if (!row) return res.status(404).json({ error: "Item not found" });
   if (row.seller_id !== req.userId) return res.status(403).json({ error: "Only the seller can change status" });
   if (!["available", "pending", "sold"].includes(req.body.status)) return res.status(400).json({ error: "Invalid status" });
+  if (row.removed_at && new Date(row.expires_at) <= new Date()) return res.status(410).json({ error: "This listing has expired and can no longer be relisted" });
+  if (row.removed_at && req.body.status !== "available") return res.status(409).json({ error: "Relist this item before changing its status" });
   const soldAt = req.body.status === "sold"
     ? (row.status === "sold" ? row.sold_at : new Date().toISOString().slice(0, 19).replace("T", " "))
     : null;
-  await db.prepare("UPDATE items SET status = ?, sold_at = ? WHERE id = ?").run(req.body.status, soldAt, row.id);
+  await db.prepare("UPDATE items SET status = ?, sold_at = ?, removed_at = NULL, expires_at = NULL WHERE id = ?").run(req.body.status, soldAt, row.id);
   res.json(shape(await find(row.id)));
 });
 router.delete("/:id", requireAuth, async (req, res) => {
   const row = await find(req.params.id);
   if (!row) return res.status(404).json({ error: "Item not found" });
   if (row.seller_id !== req.userId) return res.status(403).json({ error: "Only the seller can remove this item" });
-  await db.prepare("DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE item_id = ?)").run(row.id);
-  await db.prepare("DELETE FROM conversations WHERE item_id = ?").run(row.id);
-  await db.prepare("DELETE FROM items WHERE id = ?").run(row.id);
-  await deleteImageAssets(parse(row.image_public_ids_json));
-  res.json({ ok: true });
+  if (!row.removed_at) {
+    const removedAt = new Date();
+    await db.prepare("UPDATE items SET removed_at = ?, expires_at = ? WHERE id = ? AND removed_at IS NULL").run(removedAt.toISOString(), expiryAfterFourMonths(removedAt).toISOString(), row.id);
+  }
+  res.json(shape(await find(row.id)));
 });
 router.post("/:id/interest", requireAuth, async (req, res) => {
   const row = await find(req.params.id);
   if (!row) return res.status(404).json({ error: "Item not found" });
+  if (row.removed_at) return res.status(409).json({ error: "This listing has been removed" });
   if (row.seller_id === req.userId) return res.status(400).json({ error: "You cannot message yourself" });
   if (await isBlocked(row.seller_id, req.userId)) return res.status(403).json({ error: "Messaging is unavailable for this seller" });
   const existing = await db.prepare("SELECT id FROM conversations WHERE item_id = ? AND (user_a_id = ? OR user_b_id = ?)").get(row.id, req.userId, req.userId);

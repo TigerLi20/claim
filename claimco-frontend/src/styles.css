@@ -402,3 +402,6 @@ label{display:block;color:#2f3337;font-size:13px;font-weight:800;margin-bottom:8
 .native-launch-screen{min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:#f8f7f4;color:#3d3129;font-family:Arial,Helvetica,sans-serif}
 .native-launch-screen img{width:96px;height:96px}
 .native-launch-screen strong{font-size:25px;letter-spacing:-.04em}
+
+.item-card-removed{opacity:.55;filter:grayscale(1)}
+.item-card-removed:hover{opacity:.75}
