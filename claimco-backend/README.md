@@ -19,3 +19,7 @@ Authenticated API: `POST /items`, `PATCH /items/:id`, `DELETE /items/:id`, `PATC
 Categories: books, electronics, furniture, clothing, home, art (Art & Unique Finds), other. Conditions: new, like-new, used. Statuses: available, pending, sold. Images are limited to three.
 
 The migration removes old task and tutoring records and their user-pair chats because those chats have no reliable item association. Back up the production database before first deployment if those records need archival.
+
+Removed listings remain in My Listings with a relist action. Removal retains photos and chats and starts a four-calendar-month expiry (month-end dates are clamped). Relisting returns the item to available and clears expiry; removing it again starts a new timer. Repeated removal does not extend expiry. Sold and pending items are retained until explicitly removed.
+
+The backend checks expired removed listings at startup and hourly. Cleanup deletes their messages, conversations, and item records in a transaction and queues Cloudinary asset IDs for deletion. Failed image deletions remain queued for retry, including across restarts. The server must be running for cleanup; downtime is caught up on startup. Existing databases gain the expiry columns and cleanup queue automatically.

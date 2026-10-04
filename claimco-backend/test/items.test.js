@@ -64,6 +64,7 @@ test("listing CRUD, seller controls, and item scoped chat", async () => {
     assert.equal((await request(buyer, "/items/mine/inquiries"))[1].length, 2);
     assert.equal((await request(seller, `/items/${first.id}`, "PATCH", {title:"Updated lamp"}))[1].title, "Updated lamp");
     assert.equal((await request(seller, `/items/${first.id}`, "DELETE"))[0], 200);
-    assert.equal(await canAccessConversation(inquiry1.conversationId, buyer), false);
+    assert.equal(await canAccessConversation(inquiry1.conversationId, buyer), true);
+    assert.equal((await request(seller, `/items/${first.id}`))[1].status, "removed");
   } finally { await new Promise(resolve => server.close(resolve)); fs.rmSync(dir, { recursive:true, force:true }); }
 });
